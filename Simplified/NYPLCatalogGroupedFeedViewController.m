@@ -16,11 +16,13 @@
 
 #import "NYPLCatalogGroupedFeedViewController.h"
 
+#import <PureLayout/PureLayout.h>
+
 static CGFloat const rowHeight = 115.0;
 static CGFloat const sectionHeaderHeight = 50.0;
 
 @interface NYPLCatalogGroupedFeedViewController ()
-  <NYPLCatalogLaneCellDelegate, UITableViewDataSource, UITableViewDelegate>
+  <NYPLCatalogLaneCellDelegate, UITableViewDataSource, UITableViewDelegate, UIViewControllerPreviewingDelegate>
 
 @property (nonatomic) NSMutableDictionary *bookIdentifiersToImages;
 @property (nonatomic) NSMutableDictionary *cachedLaneCells;
@@ -84,6 +86,42 @@ static CGFloat const sectionHeaderHeight = 50.0;
   }
   
   [self downloadImages];
+  
+  //GODO Experimenting
+  if ([self.traitCollection respondsToSelector:@selector(forceTouchCapability)] &&
+      (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable)) {
+    [self registerForPreviewingWithDelegate:self sourceView:self.tableView];
+  }
+}
+
+- (UIViewController *)previewingContext:(id<UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
+{
+  NSIndexPath *indexPath = [self.tableView indexPathForRowAtPoint:location];
+  NSLog(@"%ld",(long)indexPath.row);
+  
+  NYPLCatalogLaneCell *cell = (NYPLCatalogLaneCell *)[self.tableView cellForRowAtIndexPath:indexPath];
+  
+  UIViewController *vc = [[UIViewController alloc] init];
+  
+  for (UIButton *button in cell.buttons) {
+    CGPoint referencePoint = [[button superview] convertPoint:location fromView:self.tableView];
+    if (CGRectContainsPoint(button.frame, referencePoint)) {
+      UIImageView *imgView = [[UIImageView alloc] initWithImage:button.imageView.image];
+      imgView.contentMode = UIViewContentModeScaleAspectFill;
+      [vc.view addSubview:imgView];
+      [imgView autoPinEdgesToSuperviewEdges];
+      vc.preferredContentSize = CGSizeZero;
+      previewingContext.sourceRect = [self.tableView convertRect:button.frame fromView:[button superview]];
+      
+      return vc;
+    }
+  }
+  return nil;
+}
+
+- (void)previewingContext:(id<UIViewControllerPreviewing>)previewingContext commitViewController:(UIViewController *)viewControllerToCommit
+{
+
 }
 
 - (void)didMoveToParentViewController:(UIViewController *)parent

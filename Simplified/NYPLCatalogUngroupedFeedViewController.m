@@ -17,11 +17,13 @@
 
 #import "NYPLCatalogUngroupedFeedViewController.h"
 
+#import <PureLayout/PureLayout.h>
+
 static const CGFloat kActivityIndicatorPadding = 20.0;
 
 @interface NYPLCatalogUngroupedFeedViewController ()
   <NYPLCatalogUngroupedFeedDelegate, NYPLFacetViewDataSource, NYPLFacetViewDelegate,
-   UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout>
+   UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout, UIViewControllerPreviewingDelegate>
 
 @property (nonatomic) NYPLFacetBarView *facetBarView;
 @property (nonatomic) NYPLCatalogUngroupedFeed *feed;
@@ -107,7 +109,36 @@ static const CGFloat kActivityIndicatorPadding = 20.0;
   self.activityIndicator.hidden = YES;
   [self.activityIndicator startAnimating];
   [self.collectionView addSubview:self.activityIndicator];
+  
+  //GODO Experimenting
+  if ([self.traitCollection respondsToSelector:@selector(forceTouchCapability)] &&
+      (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable)) {
+    [self registerForPreviewingWithDelegate:self sourceView:self.view];
+  }
 }
+
+
+- (UIViewController *)previewingContext:(id<UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
+{
+  NSIndexPath *indexPath = [self.collectionView indexPathForItemAtPoint:location];
+  NYPLBookNormalCell *cell = (NYPLBookNormalCell *)[self.collectionView cellForItemAtIndexPath:indexPath];
+  
+  UIViewController *vc = [[UIViewController alloc] init];
+  UIImageView *imView = cell.cover;
+  imView.contentMode = UIViewContentModeScaleAspectFill;
+  [vc.view addSubview:imView];
+  [imView autoPinEdgesToSuperviewEdges];
+  
+  vc.preferredContentSize = CGSizeZero;
+  previewingContext.sourceRect = cell.frame;
+  
+  return vc;
+}
+
+//- (void)previewingContext:(id<UIViewControllerPreviewing>)previewingContext commitViewController:(UIViewController *)viewControllerToCommit
+//{
+//  
+//}
 
 - (void)didMoveToParentViewController:(UIViewController *)parent
 {

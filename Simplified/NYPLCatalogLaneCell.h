@@ -11,6 +11,10 @@
 @property (nonatomic, weak) id<NYPLCatalogLaneCellDelegate> delegate;
 @property (nonatomic, readonly) NSUInteger laneIndex;
 
+@property (nonatomic, readonly) NSArray *buttons;
+@property (nonatomic, readonly) UIScrollView *scrollView;
+
+
 + (id)new NS_UNAVAILABLE;
 - (id)init NS_UNAVAILABLE;
 - (id)initWithCoder:(NSCoder *)aDecoder NS_UNAVAILABLE;
