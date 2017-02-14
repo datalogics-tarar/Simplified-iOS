@@ -212,6 +212,14 @@ didFinishDownloadingToURL:(NSURL *const)location
                if (book.licensor!=nil)
                {
                  [[NYPLAccount sharedAccount] setLicensor:book.licensor];
+
+                 // POST deviceID to adobeDevicesLink
+                 
+                 NSURL *deviceManager =  [NSURL URLWithString: book.licensor[@"deviceManager"]];
+                 if (deviceManager != nil) {
+                   [NYPLDeviceManager postDevice:deviceID url:deviceManager];
+                 }
+
                }
 
                [[NYPLADEPT sharedInstance]
@@ -221,6 +229,25 @@ didFinishDownloadingToURL:(NSURL *const)location
              else
              {
                NYPLLOG(error);
+               dispatch_async(dispatch_get_main_queue(), ^{
+                 NYPLAlertController *alert = [NYPLAlertController
+                                               alertWithTitle:@"DownloadFailed"
+                                               message:@"SettingsAccountViewControllerMessageTooManyActivations"];
+                 if (problemDocument) {
+                   [alert setProblemDocument:problemDocument displayDocumentMessage:YES];
+                   
+                   if ([problemDocument.type isEqualToString:NYPLProblemDocumentTypeNoActiveLoan])
+                   {
+                     [[NYPLBookRegistry sharedRegistry] removeBookForIdentifier:book.identifier];
+                   }
+                 }
+                 
+                 [alert presentFromViewControllerOrNil:nil animated:YES completion:nil];
+               });
+               [[NYPLBookRegistry sharedRegistry]
+                setState:NYPLBookStateDownloadFailed
+                forIdentifier:book.identifier];
+
              }
 
            }];

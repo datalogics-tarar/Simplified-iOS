@@ -74,11 +74,13 @@
 
 - (void)syncBegan
 {
+  self.navigationItem.leftBarButtonItem.enabled = NO;
   self.viewController.navigationItem.leftBarButtonItem.enabled = NO;
 }
 
 - (void)syncEnded
 {
+  self.navigationItem.leftBarButtonItem.enabled = YES;
   self.viewController.navigationItem.leftBarButtonItem.enabled = YES;
 }
 
@@ -88,7 +90,7 @@
   
   NYPLCatalogFeedViewController *viewController = (NYPLCatalogFeedViewController *)self.visibleViewController;
 
-  UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Pick Your Library" message:nil preferredStyle:(UIAlertControllerStyleActionSheet)];
+  UIAlertController *alert = [UIAlertController alertControllerWithTitle:NSLocalizedString(@"PickYourLibrary", nil) message:nil preferredStyle:(UIAlertControllerStyleActionSheet)];
   alert.popoverPresentationController.barButtonItem = viewController.navigationItem.leftBarButtonItem;
   alert.popoverPresentationController.permittedArrowDirections = UIPopoverArrowDirectionUp;
   
@@ -97,13 +99,27 @@
   for (int i = 0; i < (int)accounts.count; i++) {
     Account *account = [[AccountsManager sharedInstance] account:[accounts[i] intValue]];
     [alert addAction:[UIAlertAction actionWithTitle:account.name style:(UIAlertActionStyleDefault) handler:^(__unused UIAlertAction *_Nonnull action) {
+#if defined(FEATURE_DRM_CONNECTOR)
+      if([NYPLADEPT sharedInstance].workflowsInProgress) {
+        [self presentViewController:[NYPLAlertController
+                                     alertWithTitle:@"SettingsAccountViewControllerCannotLogOutTitle"
+                                     message:@"SettingsAccountViewControllerCannotLogOutMessage"]
+                           animated:YES
+                         completion:nil];
+      } else {
+        [[NYPLBookRegistry sharedRegistry] save];
+        [[NYPLSettings sharedSettings] setCurrentAccountIdentifier:account.id];
+        [self reloadSelectedLibraryAccount];
+      }
+#else
       [[NYPLBookRegistry sharedRegistry] save];
       [[NYPLSettings sharedSettings] setCurrentAccountIdentifier:account.id];
       [self reloadSelectedLibraryAccount];
+#endif
     }]];
   }
   
-  [alert addAction:[UIAlertAction actionWithTitle:@"Manage Accounts" style:(UIAlertActionStyleDefault) handler:^(__unused UIAlertAction *_Nonnull action) {
+  [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"ManageAccounts", nil) style:(UIAlertActionStyleDefault) handler:^(__unused UIAlertAction *_Nonnull action) {
     NSUInteger tabCount = [[[NYPLRootTabBarController sharedController] viewControllers] count];
     UISplitViewController *splitViewVC = [[[NYPLRootTabBarController sharedController] viewControllers] lastObject];
     UINavigationController *masterNavVC = [[splitViewVC viewControllers] firstObject];
@@ -113,7 +129,7 @@
     [tableVC.delegate settingsPrimaryTableViewController:tableVC didSelectItem:NYPLSettingsPrimaryTableViewControllerItemAccount];
   }]];
 
-  [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:(UIAlertActionStyleCancel) handler:nil]];
+  [alert addAction:[UIAlertAction actionWithTitle:NSLocalizedString(@"Cancel", nil) style:(UIAlertActionStyleCancel) handler:nil]];
 
   [[NYPLRootTabBarController sharedController]
    safelyPresentViewController:alert
@@ -140,12 +156,16 @@
     NYPLCatalogFeedViewController *viewController = (NYPLCatalogFeedViewController *)self.visibleViewController;
     viewController.URL = [NYPLConfiguration mainFeedURL]; // It may have changed
     [viewController load];
+    [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncBeganNotification object:nil];
+
     viewController.navigationItem.title = [[NYPLSettings sharedSettings] currentAccount].name;
   } else if ([[self.topViewController class] isSubclassOfClass:[NYPLCatalogFeedViewController class]] &&
              [self.topViewController respondsToSelector:@selector(load)]) {
     NYPLCatalogFeedViewController *viewController = (NYPLCatalogFeedViewController *)self.topViewController;
     viewController.URL = [NYPLConfiguration mainFeedURL]; // It may have changed
     [viewController load];
+    [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncBeganNotification object:nil];
+
     viewController.navigationItem.title = [[NYPLSettings sharedSettings] currentAccount].name;
   }
   
@@ -166,9 +186,6 @@
     NYPLLOG(first);
     NYPLLOG(last);
     
-//    first = @"23333999999918";
-//    last = @"1914";
-
     [[NYPLADEPT sharedInstance]
      authorizeWithVendorID:[[NYPLAccount sharedAccount:account.id] licensor][@"vendor"]
      username:first
@@ -182,35 +199,45 @@
        {
          [[NYPLAccount sharedAccount:account.id] setUserID:userID];
          [[NYPLAccount sharedAccount:account.id] setDeviceID:deviceID];
-         [[NYPLBookRegistry sharedRegistry] syncWithCompletionHandler:nil];
-       }
-       else{
-         
-         
-         // show alert Temporary, needs to be replaced or removed.
-         
-         
-//         NYPLAlertController *alertCont = [NYPLAlertController
-//                                           alertControllerWithTitle:NSLocalizedString(@"Error", nil)
-//                                           message:error.userInfo[@"originalCode"]
-//                                           preferredStyle:UIAlertControllerStyleAlert];
-//         
-//         [alertCont addAction: [UIAlertAction actionWithTitle:@"OK"
-//                                                        style:UIAlertActionStyleDefault
-//                                                      handler:nil]];
-//         
-//         
-//         [alertCont presentFromViewControllerOrNil:nil animated:YES completion:nil];
 
+         [[NYPLBookRegistry sharedRegistry] syncWithCompletionHandler:^(BOOL __unused success) {
+           [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+         }];
          
+         // POST deviceID to adobeDevicesLink
+         NSURL *deviceManager =  [NSURL URLWithString: [[NYPLAccount sharedAccount:account.id] licensor][@"deviceManager"]];
+         if (deviceManager != nil) {
+           [NYPLDeviceManager postDevice:deviceID url:deviceManager];
+         }
        }
-      
-       
+       else
+       {
+         [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+       }
      }];
   }
-  else if (account.needsAuth)
-  {
-    [[NYPLBookRegistry sharedRegistry] syncWithCompletionHandler:nil];
+//  else if (account.needsAuth)
+//  {
+////    [[NYPLBookRegistry sharedRegistry] syncWithCompletionHandler:^(BOOL __unused success) {
+//      [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+////    }];
+//  }
+  else{
+    [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+      [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+    }];
+  }
+  
+}
+
+- (void)viewDidLoad
+{
+  [super viewDidLoad];
+  
+  NYPLSettings *settings = [NYPLSettings sharedSettings];
+  
+  if (settings.userHasSeenWelcomeScreen == YES) {
+    [self reloadSelectedLibraryAccount];
   }
   
 }
@@ -263,6 +290,20 @@
     }
     
   }
+  else
+  {
+    Account *account = [[AccountsManager sharedInstance] currentAccount];
+
+    if ((account.needsAuth
+        && ![[NYPLAccount sharedAccount:account.id] hasBarcodeAndPIN]) || !account.needsAuth)
+    {
+      [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+        [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+      }];
+    }
+    
+  }
+  
 }
 
 @end

@@ -61,7 +61,7 @@
   
   [self.activityIndicatorView startAnimating];
   
-  [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncBeganNotification object:nil];
+//  [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncBeganNotification object:nil];
   
   [self.connection start];
 }
@@ -119,8 +119,6 @@
 {
   [self.activityIndicatorView stopAnimating];
   
-  [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
-  
   if ([(NSHTTPURLResponse *)self.response statusCode] != 200
       && ([self.response.MIMEType isEqualToString:@"application/problem+json"]
           || [self.response.MIMEType isEqualToString:@"application/api-problem+json"])) {
@@ -161,8 +159,6 @@
   didFailWithError:(__attribute__((unused)) NSError *)error
 {
   [self.activityIndicatorView stopAnimating];
-  
-  [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
   
   self.reloadView.hidden = NO;
   

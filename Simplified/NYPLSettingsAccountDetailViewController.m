@@ -207,9 +207,6 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
     [section1 addObject:@(CellKindSyncButton)];
   }
   NSMutableArray *section2 = [[NSMutableArray alloc] init];
-  if ([self.account getLicenseURL:URLTypeAcknowledgements]) {
-    [section2 addObject:@(CellKindAbout)];
-  }
   if ([self.account getLicenseURL:URLTypePrivacyPolicy]) {
     [section2 addObject:@(CellKindPrivacyPolicy)];
   }
@@ -344,6 +341,16 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
             NYPLLOG(@"Failed to deauthorize successfully.");
             
           }
+          else {
+            
+            // DELETE deviceID to adobeDevicesLink
+            NSURL *deviceManager =  [NSURL URLWithString: [[NYPLAccount sharedAccount:self.accountType] licensor][@"deviceManager"]];
+            if (deviceManager != nil) {
+              [NYPLDeviceManager deleteDevice:[[NYPLAccount sharedAccount:self.accountType] deviceID] url:deviceManager];
+            }
+
+          }
+          
           [self removeActivityTitle];
           [[UIApplication sharedApplication] endIgnoringInteractionEvents];
           afterDeauthorization();
@@ -451,10 +458,14 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
         void (^handler)() = self.completionHandler;
         self.completionHandler = nil;
         if(handler) handler();
-        [[NYPLBookRegistry sharedRegistry] syncWithCompletionHandler:nil];
+        [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncBeganNotification object:nil];
+        [[NYPLBookRegistry sharedRegistry] syncWithCompletionHandler:^(BOOL __unused success) {
+          [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+        }];
       }
       
     } else {
+      [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
       [self showLoginAlertWithError:error];
     }
   }];
@@ -662,9 +673,6 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
 - (UITableViewCell *)tableView:(__attribute__((unused)) UITableView *)tableView
          cellForRowAtIndexPath:(NSIndexPath *const)indexPath
 {
-  // This is the amount of horizontal padding Apple uses around the titles in cells by default.
-  CGFloat const padding = 16;
-  
   NSArray *sectionArray = (NSArray *)self.tableData[indexPath.section];
   CellKind cellKind = (CellKind)[sectionArray[indexPath.row] intValue];
   
@@ -675,11 +683,10 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
                                      reuseIdentifier:nil];
       cell.selectionStyle = UITableViewCellSelectionStyleNone;
       {
-        CGRect frame = cell.contentView.bounds;
-        frame.origin.x += padding;
-        frame.size.width -= padding * 2;
-        self.barcodeTextField.frame = frame;
         [cell.contentView addSubview:self.barcodeTextField];
+        [self.barcodeTextField autoAlignAxisToSuperviewAxis:ALAxisHorizontal];
+        [self.barcodeTextField autoPinEdgeToSuperviewMargin:ALEdgeLeft];
+        [self.barcodeTextField autoPinEdgeToSuperviewMargin:ALEdgeRight];
       }
       return cell;
     }
@@ -689,11 +696,10 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
                                      reuseIdentifier:nil];
       cell.selectionStyle = UITableViewCellSelectionStyleNone;
       {
-        CGRect frame = cell.contentView.bounds;
-        frame.origin.x += padding;
-        frame.size.width -= padding * 2;
-        self.PINTextField.frame = frame;
         [cell.contentView addSubview:self.PINTextField];
+        [self.PINTextField autoAlignAxisToSuperviewAxis:ALAxisHorizontal];
+        [self.PINTextField autoPinEdgeToSuperviewMargin:ALEdgeLeft];
+        [self.PINTextField autoPinEdgeToSuperviewMargin:ALEdgeRight];
       }
       return cell;
     }
@@ -735,7 +741,7 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
                                      initWithStyle:UITableViewCellStyleValue1
                                      reuseIdentifier:nil];
       self.registrationCell.textLabel.font = [UIFont systemFontOfSize:17];
-      self.registrationCell.textLabel.text = @"Dont't have a library card?";
+      self.registrationCell.textLabel.text = NSLocalizedString(@"SettingsAccountRegistrationTitle", @"Title for registration. Asking the user if they already have a library card.");
       self.registrationCell.detailTextLabel.font = [UIFont systemFontOfSize:17];
       self.registrationCell.detailTextLabel.text = NSLocalizedString(@"SignUp", nil);
       self.registrationCell.detailTextLabel.textColor = [NYPLConfiguration mainColor];
@@ -896,11 +902,11 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
     [containerView addSubview:logoView];
     
     [logoView autoSetDimensionsToSize:CGSizeMake(45, 45)];
-    [logoView autoPinEdgeToSuperviewEdge:ALEdgeLeft withInset:16];
+    [logoView autoPinEdgeToSuperviewMargin:ALEdgeLeft];
     [logoView autoPinEdgeToSuperviewEdge:ALEdgeTop withInset:16];
     
     [titleLabel autoPinEdgeToSuperviewEdge:ALEdgeTop withInset:16];
-    [titleLabel autoPinEdgeToSuperviewEdge:ALEdgeRight withInset:16];
+    [titleLabel autoPinEdgeToSuperviewMargin:ALEdgeRight];
     [titleLabel autoPinEdge:ALEdgeLeft toEdge:ALEdgeRight ofView:logoView withOffset:8];
     
     [subtitleLabel autoPinEdge:ALEdgeLeft toEdge:ALEdgeLeft ofView:titleLabel];
@@ -1214,9 +1220,8 @@ replacementString:(NSString *)string
 
 - (BOOL)syncButtonShouldBeVisible
 {
-  return NO; //Currently Disabled
-//  return ([self.account getLicenseURL:URLTypeAnnotations] &&
-//          [[NYPLAccount sharedAccount:self.accountType] hasBarcodeAndPIN]);
+  return ([self.account getLicenseURL:URLTypeAnnotations] &&
+          [[NYPLAccount sharedAccount:self.accountType] hasBarcodeAndPIN]);
 }
 
 - (void)didSelectCancel

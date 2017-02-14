@@ -6,11 +6,14 @@
 #import "NYPLCatalogSearchViewController.h"
 #import "NYPLConfiguration.h"
 #import "NYPLOpenSearchDescription.h"
+#import "NYPLSettings.h"
 #import "NYPLAccountSignInViewController.h"
 #import <PureLayout/PureLayout.h>
 #import "UIView+NYPLViewAdditions.h"
 
 #import "NYPLHoldsViewController.h"
+
+#import "SimplyE-Swift.h"
 
 @interface NYPLHoldsViewController ()
 <UICollectionViewDataSource, UICollectionViewDelegate, UICollectionViewDelegateFlowLayout>
@@ -42,6 +45,16 @@
    name:NYPLBookRegistryDidChangeNotification
    object:nil];
   
+  [[NSNotificationCenter defaultCenter]
+   addObserver:self
+   selector:@selector(syncEnded)
+   name:NYPLSyncEndedNotification object:nil];
+  
+  [[NSNotificationCenter defaultCenter]
+   addObserver:self
+   selector:@selector(syncBegan)
+   name:NYPLSyncBeganNotification object:nil];
+
   return self;
 }
 
@@ -96,7 +109,7 @@
   
   if([NYPLBookRegistry sharedRegistry].syncing == NO) {
     [self.refreshControl endRefreshing];
-    self.navigationItem.leftBarButtonItem.enabled = YES;
+    [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
   }
 }
 
@@ -207,21 +220,46 @@ didSelectItemAtIndexPath:(NSIndexPath *const)indexPath
 
 - (void)didSelectSync
 {
-  self.navigationItem.leftBarButtonItem.enabled = NO;
+  [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncBeganNotification object:nil];
   
-  if([[NYPLAccount sharedAccount] hasBarcodeAndPIN]) {
-    [[NYPLBookRegistry sharedRegistry] syncWithStandardAlertsOnCompletion];
-  } else {
-    // We can't sync if we're not logged in, so let's log in. We don't need a completion handler
-    // here because logging in will trigger a sync anyway. The only downside of letting the sync
-    // happen elsewhere is that the user will not receive an error if the sync fails because it will
-    // be considered an automatic sync and not a manual sync.
-    // TODO: We should make this into a manual sync while somehow avoiding double-syncing.
-    [NYPLAccountSignInViewController
-     requestCredentialsUsingExistingBarcode:NO
-     completionHandler:nil];
-    [self.refreshControl endRefreshing];
-    self.navigationItem.leftBarButtonItem.enabled = YES;
+  Account *account = [[NYPLSettings sharedSettings] currentAccount];
+  
+  if (account.needsAuth)
+  {
+
+    if([[NYPLAccount sharedAccount] hasBarcodeAndPIN]) {
+      [[NYPLBookRegistry sharedRegistry] syncWithCompletionHandler:^(BOOL success) {
+        if(success) {
+          [[NYPLBookRegistry sharedRegistry] save];
+        } else {
+          [[[UIAlertView alloc]
+            initWithTitle:NSLocalizedString(@"SyncFailed", nil)
+            message:NSLocalizedString(@"CheckConnection", nil)
+            delegate:nil
+            cancelButtonTitle:nil
+            otherButtonTitles:NSLocalizedString(@"OK", nil), nil]
+           show];
+        }
+        [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+      }];
+    } else {
+      // We can't sync if we're not logged in, so let's log in. We don't need a completion handler
+      // here because logging in will trigger a sync anyway. The only downside of letting the sync
+      // happen elsewhere is that the user will not receive an error if the sync fails because it will
+      // be considered an automatic sync and not a manual sync.
+      // TODO: We should make this into a manual sync while somehow avoiding double-syncing.
+      [NYPLAccountSignInViewController
+       requestCredentialsUsingExistingBarcode:NO
+       completionHandler:nil];
+      [self.refreshControl endRefreshing];
+      [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+    }
+  }
+  else
+  {
+    [[NYPLBookRegistry sharedRegistry] justLoad];
+    [[NSNotificationCenter defaultCenter] postNotificationName:NYPLSyncEndedNotification object:nil];
+    
   }
 }
 
@@ -230,7 +268,6 @@ didSelectItemAtIndexPath:(NSIndexPath *const)indexPath
   [[NSOperationQueue mainQueue] addOperationWithBlock:^{
     if([NYPLBookRegistry sharedRegistry].syncing == NO) {
       [self.refreshControl endRefreshing];
-      self.navigationItem.leftBarButtonItem.enabled = YES;
     }
   }];
 }
@@ -242,6 +279,16 @@ didSelectItemAtIndexPath:(NSIndexPath *const)indexPath
   [self.navigationController
    pushViewController:[[NYPLCatalogSearchViewController alloc] initWithOpenSearchDescription:searchDescription]
    animated:YES];
+}
+
+- (void)syncBegan
+{
+  self.navigationItem.leftBarButtonItem.enabled = NO;
+}
+
+- (void)syncEnded
+{
+  self.navigationItem.leftBarButtonItem.enabled = YES;
 }
 
 @end
