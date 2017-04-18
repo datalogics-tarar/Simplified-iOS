@@ -18,8 +18,13 @@
 #import "UIView+NYPLViewAdditions.h"
 #import "SimplyE-Swift.h"
 #import <PureLayout/PureLayout.h>
+#import <HelpStack/HSUtility.h>
+#import "HSHelpStack.h"
+#import "HSDeskGear.h"
+
 
 @import CoreLocation;
+@import MessageUI;
 
 #if defined(FEATURE_DRM_CONNECTOR)
 #import <ADEPT/ADEPT.h>
@@ -27,6 +32,7 @@
 
 typedef NS_ENUM(NSInteger, CellKind) {
   CellKindAgeCheck,
+  CellKindBarcodeImage,
   CellKindBarcode,
   CellKindPIN,
   CellKindLogInSignOut,
@@ -36,7 +42,9 @@ typedef NS_ENUM(NSInteger, CellKind) {
   CellKindSyncButton,
   CellKindAbout,
   CellKindPrivacyPolicy,
-  CellKindContentLicense
+  CellKindContentLicense,
+  CellReportIssue,
+  CellSupportCenter
 };
 
 typedef NS_ENUM(NSInteger, Section) {
@@ -45,15 +53,19 @@ typedef NS_ENUM(NSInteger, Section) {
   SectionLicenses = 2,
 };
 
-@interface NYPLSettingsAccountDetailViewController () <NSURLSessionDelegate, UITextFieldDelegate>
+@interface NYPLSettingsAccountDetailViewController () <NSURLSessionDelegate, UITextFieldDelegate, UIAlertViewDelegate>
 
 @property (nonatomic) BOOL isLoggingInAfterSignUp;
 @property (nonatomic) UITextField *barcodeTextField;
+@property (nonatomic) UILabel *barcodeLabelImage;
+@property (nonatomic) UILabel *barcodeLabelImageZoom;
+@property (nonatomic) UIView *zoomView;
 @property (nonatomic, copy) void (^completionHandler)();
 @property (nonatomic) BOOL hiddenPIN;
 @property (nonatomic) UITextField *PINTextField;
 @property (nonatomic) NSURLSession *session;
 @property (nonatomic) UIButton *PINShowHideButton;
+@property (nonatomic) UIButton *barcodeScanButton;
 @property (nonatomic) NSInteger accountType;
 @property (nonatomic) Account *account;
 
@@ -62,7 +74,10 @@ typedef NS_ENUM(NSInteger, Section) {
 @property (nonatomic) UITableViewCell *logInSignOutCell;
 @property (nonatomic) UITableViewCell *ageCheckCell;
 
-@property (nonatomic) NSArray *tableData;
+@property (nonatomic) NSMutableArray *tableData;
+@property (nonatomic) bool rotated;
+
+@property (nonatomic) UISwitch* switchView;
 
 @end
 
@@ -181,12 +196,67 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
   [self.PINShowHideButton sizeToFit];
   [self.PINShowHideButton addTarget:self action:@selector(PINShowHideSelected)
                    forControlEvents:UIControlEventTouchUpInside];
+  
+  if (self.account.supportsBarcodeScanner) {
+    self.barcodeScanButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    [self.barcodeScanButton setImage:[UIImage imageNamed:@"ic_camera"] forState:UIControlStateNormal];
+    [self.barcodeScanButton sizeToFit];
+    [self.barcodeScanButton addTarget:self action:@selector(scanLibraryCard)
+                   forControlEvents:UIControlEventTouchUpInside];
+
+    self.barcodeTextField.rightView = self.barcodeScanButton;
+    self.barcodeTextField.rightViewMode = UITextFieldViewModeAlways;
+  }
   self.PINTextField.rightView = self.PINShowHideButton;
   self.PINTextField.rightViewMode = UITextFieldViewModeAlways;
   
   [self setupTableData];
+  
+  [self checkSyncSetting];
+  self.switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
 }
 
+- (void)barcodeZoom
+{
+
+  if (self.rotated)
+  {
+    self.rotated = NO;
+       
+    [self.barcodeLabelImageZoom removeFromSuperview];
+    [self.zoomView removeFromSuperview];
+  }
+  else
+  {
+    self.rotated = YES;
+    
+    self.barcodeLabelImageZoom = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, self.view.frame.size.height  -130, self.view.frame.size.width/2)];
+    
+    CGAffineTransform transform = CGAffineTransformMakeRotation(-M_PI / 2);
+    transform = CGAffineTransformScale(transform, 1.0, 3.0);
+    [self.barcodeLabelImageZoom setTransform:transform];
+    CGRect frame = self.barcodeLabelImageZoom.frame;
+    frame.origin.x = 25 ;//+ (self.barcodeLabelImageZoom.frame.size.width/4);
+    frame.origin.y = 10;
+    self.barcodeLabelImageZoom.frame = frame;
+    self.barcodeLabelImageZoom.text = [NSString stringWithFormat:@"A%@B", [NYPLAccount sharedAccount:self.accountType].authorizationIdentifier];
+    self.barcodeLabelImageZoom.font = [UIFont fontWithName:@"CodabarLarge" size:50.0];
+    self.barcodeLabelImageZoom.textAlignment = NSTextAlignmentCenter;
+    self.barcodeLabelImageZoom.adjustsFontSizeToFitWidth = YES;
+    self.barcodeLabelImageZoom.backgroundColor = [UIColor whiteColor];
+    
+    self.zoomView = [[UIView alloc] initWithFrame:self.tableView.frame];
+    self.zoomView.backgroundColor = [UIColor whiteColor];
+    
+    [self.zoomView addSubview:self.barcodeLabelImageZoom];
+    [self.view addSubview:self.zoomView];
+
+    UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(barcodeZoom)];
+    [self.barcodeLabelImageZoom addGestureRecognizer:tap];
+    self.barcodeLabelImageZoom.userInteractionEnabled = YES;
+
+  }
+}
 - (void)setupTableData
 {
   NSMutableArray *section0;
@@ -201,9 +271,11 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
   
   NSMutableArray *sectionRegister = @[@(CellKindRegistration)].mutableCopy;
 
-
+  if (self.account.needsAuth == YES && [[NYPLAccount sharedAccount:self.accountType] hasBarcodeAndPIN] && self.account.supportsBarcodeDisplay){
+    [section0 insertObject:@(CellKindBarcodeImage) atIndex: 0];
+  }
   NSMutableArray *section1 = [[NSMutableArray alloc] init];
-  if ([self syncButtonShouldBeVisible]) {
+  if (self.account.supportsSimplyESync && [self syncButtonShouldBeVisible]) {
     [section1 addObject:@(CellKindSyncButton)];
   }
   NSMutableArray *section2 = [[NSMutableArray alloc] init];
@@ -215,11 +287,29 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
   }
   
   if ([self registrationIsPossible]) {
-    self.tableData = @[section0, sectionRegister, section1, section2];
+    self.tableData = @[section0, sectionRegister, section1].mutableCopy;
   }
   else{
-    self.tableData = @[section0, section1, section2];
+    self.tableData = @[section0, section1].mutableCopy;
   }
+  
+
+  NSMutableArray *supportCenter = [[NSMutableArray alloc] init];
+  if (self.account.supportsHelpCenter)
+  {
+    [supportCenter addObject:@(CellSupportCenter)];
+    [self.tableData addObject:supportCenter];
+    
+  }
+  NSMutableArray *reportIssue = [[NSMutableArray alloc] init];
+  if (self.account.supportEmail != nil)
+  {
+    [reportIssue addObject:@(CellReportIssue)];
+    [self.tableData addObject:reportIssue];
+  }
+  [self.tableData addObject:section2];
+
+  
   NSMutableArray *newArray = [[NSMutableArray alloc] init];
   for (NSMutableArray *section in self.tableData) {
     if ([section count] != 0) { [newArray addObject:section]; }
@@ -448,6 +538,12 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
     [[UIApplication sharedApplication] endIgnoringInteractionEvents];
     
     if(success) {
+      [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+
+        [self checkSyncSetting];
+      
+      }];
+      
       [[NYPLAccount sharedAccount:self.accountType] setBarcode:self.barcodeTextField.text
                                                            PIN:self.PINTextField.text];
       
@@ -624,6 +720,54 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
     case CellKindSyncButton: {
       break;
     }
+    case CellKindBarcodeImage: {
+      break;
+    }
+    case CellReportIssue: {
+      if ([MFMailComposeViewController canSendMail])
+      {
+        UIStoryboard *sb = [UIStoryboard storyboardWithName:@"ReportIssue" bundle:nil];
+        NYPLReportIssueViewController *vc = [sb instantiateViewControllerWithIdentifier:@"ReportIssueController"];
+        vc.account = self.account;
+        [self.navigationController pushViewController:vc animated:YES];
+      }
+      else
+      {
+        [self.tableView deselectRowAtIndexPath:indexPath animated:YES];
+        UIAlertView *alert = [[UIAlertView alloc]
+                              initWithTitle:@"No email account is set for this device. "
+                              message:[NSString stringWithFormat:@"If you have web email, contact %@ to report an issue.", self.account.supportEmail]
+                              delegate:nil
+                              cancelButtonTitle:nil
+                              otherButtonTitles:@"OK", nil];
+        [alert show];
+      }
+      break;
+    }
+    case CellSupportCenter: {
+      
+      [[HSHelpStack instance] setThemeFrompList:@"HelpStackThemeNYPL"];
+
+      HSDeskGear *deskGear = [[HSDeskGear alloc]
+                              initWithInstanceBaseUrl:@"######## REPLACE #########"
+                              token:@"######## REPLACE #########"
+                              andBrand:nil];
+      
+      HSHelpStack *helpStack = [HSHelpStack instance];
+      helpStack.gear = deskGear;
+    
+      if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+        UIStoryboard* helpStoryboard = [UIStoryboard storyboardWithName:@"HelpStackStoryboard" bundle:[NSBundle mainBundle]];
+        UINavigationController *mainNavVC = [helpStoryboard instantiateInitialViewController];
+        UIViewController *firstVC = mainNavVC.viewControllers.firstObject;
+        firstVC.navigationItem.leftBarButtonItem = nil;
+        [self.navigationController pushViewController:firstVC animated:true];
+
+      } else {
+        [[HSHelpStack instance] showHelp:self];
+      }
+      break;
+    }
     case CellKindAbout: {
       RemoteHTMLViewController *vc = [[RemoteHTMLViewController alloc]
                                       initWithURL:[self.account getLicenseURL:URLTypeAcknowledgements]
@@ -688,6 +832,34 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
         [self.barcodeTextField autoPinEdgeToSuperviewMargin:ALEdgeLeft];
         [self.barcodeTextField autoPinEdgeToSuperviewMargin:ALEdgeRight];
       }
+      return cell;
+    }
+    case CellKindBarcodeImage:{
+      UITableViewCell *const cell = [[UITableViewCell alloc]
+                                     initWithStyle:UITableViewCellStyleDefault
+                                     reuseIdentifier:nil];
+      cell.selectionStyle = UITableViewCellSelectionStyleNone;
+      self.barcodeLabelImage = [[UILabel alloc] initWithFrame:CGRectMake(0, 20, self.view.bounds.size.width, 140)];
+      self.barcodeLabelImage.text = [NSString stringWithFormat:@"A%@B", [NYPLAccount sharedAccount:self.accountType].authorizationIdentifier];
+      self.barcodeLabelImage.font = [UIFont fontWithName:@"CodabarLarge" size:36.0];
+      self.barcodeLabelImage.textAlignment = NSTextAlignmentCenter;
+      self.barcodeLabelImage.adjustsFontSizeToFitWidth = YES;
+      UITapGestureRecognizer *tap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(barcodeZoom)];
+      
+      [self.barcodeLabelImage addGestureRecognizer:tap];
+      self.barcodeLabelImage.userInteractionEnabled = YES;
+
+      [cell.contentView addSubview:self.barcodeLabelImage];
+      
+      UILabel *labelD = [[UILabel alloc] initWithFrame:CGRectMake(0, 95, self.view.bounds.size.width, 10)];
+      labelD.text =  [NYPLAccount sharedAccount:self.accountType].authorizationIdentifier;
+      labelD.font = [UIFont systemFontOfSize:10];
+      labelD.textAlignment = NSTextAlignmentCenter;
+      labelD.adjustsFontSizeToFitWidth = YES;
+      [cell.contentView addSubview:labelD];
+
+      
+
       return cell;
     }
     case CellKindPIN: {
@@ -791,19 +963,36 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
       UITableViewCell *const cell = [[UITableViewCell alloc]
                                      initWithStyle:UITableViewCellStyleDefault
                                      reuseIdentifier:nil];
-      UISwitch* switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
       if (self.account.syncIsEnabled) {
-        [switchView setOn:YES];
+        [self.switchView setOn:YES];
       } else {
-        [switchView setOn:NO];
+        [self.switchView setOn:NO];
       }
-      cell.accessoryView = switchView;
-      [switchView addTarget:self action:@selector(syncSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-      [cell.contentView addSubview:switchView];
+      cell.accessoryView = self.switchView;
+      [self.switchView addTarget:self action:@selector(syncSwitchChanged:) forControlEvents:UIControlEventValueChanged];
+      [cell.contentView addSubview:self.switchView];
       cell.selectionStyle = UITableViewCellSelectionStyleNone;
       cell.textLabel.font = [UIFont systemFontOfSize:17];
       cell.textLabel.text = NSLocalizedString(@"SettingsAccountSyncTitle",
-                                              @"Title for switch to turn on or off syncing of the place where a user was reading a book.");
+                                              @"Title for switch to turn on or off syncing.");
+      return cell;
+    }
+    case CellReportIssue: {
+      UITableViewCell *cell = [[UITableViewCell alloc]
+                               initWithStyle:UITableViewCellStyleDefault
+                               reuseIdentifier:nil];
+      cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+      cell.textLabel.font = [UIFont systemFontOfSize:17];
+      cell.textLabel.text = NSLocalizedString(@"Report An Issue", nil);
+      return cell;
+    }
+    case CellSupportCenter: {
+      UITableViewCell *cell = [[UITableViewCell alloc]
+                               initWithStyle:UITableViewCellStyleDefault
+                               reuseIdentifier:nil];
+      cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
+      cell.textLabel.font = [UIFont systemFontOfSize:17];
+      cell.textLabel.text = NSLocalizedString(@"Support Center", nil);
       return cell;
     }
     case CellKindAbout: {
@@ -865,7 +1054,14 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
     return 0;
   }
 }
-
+-(NSString *)tableView:(__unused UITableView *)tableView titleForFooterInSection:(NSInteger)section
+{
+  if (self.account.supportsSimplyESync && [self syncButtonShouldBeVisible] && section == 1) {
+  return NSLocalizedString(@"SettingsAccountSyncSubTitle",
+                           @"Disclaimer for switch to turn on or off syncing.");
+  }
+  return nil;
+}
 -(CGFloat)tableView:(__unused UITableView *)tableView estimatedHeightForHeaderInSection:(NSInteger)section
 {
   if (section == 0) {
@@ -878,6 +1074,19 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
 - (CGFloat)tableView:(__unused UITableView *)tableView estimatedHeightForRowAtIndexPath:(__unused NSIndexPath *)indexPath
 {
   return 44;
+}
+-(CGFloat)tableView:(__unused UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+  NSArray *sectionArray = (NSArray *)self.tableData[indexPath.section];
+  CellKind cellKind = (CellKind)[sectionArray[indexPath.row] intValue];
+  
+  if (cellKind == CellKindBarcodeImage)
+  {
+    NSLog(@"barcode");
+    return 120;
+  }
+  return 44;
+
 }
 
 - (UIView *)tableView:(__unused UITableView *)tableView viewForHeaderInSection:(NSInteger)section
@@ -1022,6 +1231,7 @@ replacementString:(NSString *)string
   [self.tableView reloadData];
 }
 
+
 - (void)PINShowHideSelected
 {
   if(self.PINTextField.text.length > 0 && self.PINTextField.secureTextEntry) {
@@ -1059,16 +1269,22 @@ replacementString:(NSString *)string
   [[NSOperationQueue mainQueue] addOperationWithBlock:^{
     if([NYPLAccount sharedAccount:self.accountType].hasBarcodeAndPIN) {
       self.barcodeTextField.text = [NYPLAccount sharedAccount:self.accountType].barcode;
+      self.barcodeLabelImage.text = [NSString stringWithFormat:@"A%@B", [NYPLAccount sharedAccount:self.accountType].authorizationIdentifier];
+
       self.barcodeTextField.enabled = NO;
       self.barcodeTextField.textColor = [UIColor grayColor];
       self.PINTextField.text = [NYPLAccount sharedAccount:self.accountType].PIN;
       self.PINTextField.textColor = [UIColor grayColor];
+      self.barcodeTextField.rightView.hidden = YES;
+
     } else {
       self.barcodeTextField.text = nil;
       self.barcodeTextField.enabled = YES;
       self.barcodeTextField.textColor = [UIColor blackColor];
       self.PINTextField.text = nil;
       self.PINTextField.textColor = [UIColor blackColor];
+      self.barcodeTextField.rightView.hidden = NO;
+
     }
     
     [self setupTableData];
@@ -1106,6 +1322,46 @@ replacementString:(NSString *)string
   }
 }
 
+- (void)checkSyncSetting
+{
+  [NYPLAnnotations syncSettingsWithCompletionHandler:^(BOOL exist) {
+    
+    if (!exist)
+    {
+      // alert
+      
+      Account *account = [[AccountsManager sharedInstance] account:self.accountType];
+      
+      NSString *title = @"SimplyE Sync";
+      NSString *message = @"<Initial setup> Synchronize your bookmarks and last reading position across all your SimplyE devices.";
+      
+      NYPLAlertController *alertController = [NYPLAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+      
+      
+      [alertController addAction:[UIAlertAction actionWithTitle:@"Do not Enable Sync" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
+        
+        // add server update here as well
+        [NYPLAnnotations updateSyncSettings:false];
+        account.syncIsEnabled = NO;
+        self.switchView.on = account.syncIsEnabled;
+      }]];
+      
+      
+      [alertController addAction:[UIAlertAction actionWithTitle:@"Enable Sync" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
+        
+        // add server update here as well
+        [NYPLAnnotations updateSyncSettings:true];
+        account.syncIsEnabled = YES;
+        self.switchView.on = account.syncIsEnabled;
+        
+      }]];
+      [[NYPLRootTabBarController sharedController] safelyPresentViewController:alertController
+                                                                      animated:YES completion:nil];
+      
+    }
+    
+  }];
+}
 - (void)setActivityTitleWithText:(NSString *)text
 {
   UIActivityIndicatorView *const activityIndicatorView =
@@ -1149,15 +1405,77 @@ replacementString:(NSString *)string
   [self.navigationController presentViewController:navVC animated:YES completion:nil];
 }
 
-- (void)syncSwitchChanged:(id)sender
+- (void)syncSwitchChanged:(UISwitch*)sender
 {
+  
   Account *account = [[AccountsManager sharedInstance] account:self.accountType];
-  UISwitch *switchControl = sender;
-  if (switchControl.on) {
-    account.syncIsEnabled = YES;
-  } else {
-    account.syncIsEnabled = NO;
+  NSString *title, *message;
+  
+  if (account.syncIsEnabled)
+  {
+    title = @"Disable Sync";
+    message = @"Bookmarks and last reading position in this device will not be shared with your other SimplyE devices.";
   }
+  else
+  {
+    title = @"Enable Sync";
+    message = @"This will synchronize your bookmarks and last reading position across all your SimplyE devices.";
+  }
+  
+  NYPLAlertController *alertController = [NYPLAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
+  if (account.syncIsEnabled)
+  {
+    [alertController addAction:[UIAlertAction actionWithTitle:@"Remove Current Device From Sync" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
+    
+      // add server update here as well
+      
+      if (sender.on) {
+        account.syncIsEnabled = YES;
+      } else {
+        account.syncIsEnabled = NO;
+      }
+      self.switchView.on = account.syncIsEnabled;
+
+    }]];
+    [alertController addAction:[UIAlertAction actionWithTitle:@"Remove All Devices From Sync" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
+      
+      // add server update here as well
+      
+      [NYPLAnnotations updateSyncSettings:false];
+      if (sender.on) {
+        account.syncIsEnabled = YES;
+      } else {
+        account.syncIsEnabled = NO;
+      }
+      self.switchView.on = account.syncIsEnabled;
+      
+    }]];
+  }
+  else
+  {
+    [alertController addAction:[UIAlertAction actionWithTitle:@"Enable Sync" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
+      
+      // add server update here as well
+      
+      [NYPLAnnotations updateSyncSettings:true];
+      if (sender.on) {
+        account.syncIsEnabled = YES;
+      } else {
+        account.syncIsEnabled = NO;
+      }
+      self.switchView.on = account.syncIsEnabled;
+      
+    }]];
+  }
+  
+  [alertController addAction:[UIAlertAction actionWithTitle:@"Never mind" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction * _Nonnull action) {
+
+    self.switchView.on = account.syncIsEnabled;
+    
+  }]];
+  
+  [[NYPLRootTabBarController sharedController] safelyPresentViewController:alertController
+                                                                  animated:YES completion:nil];
 }
 
 - (void)changedCurrentAccount

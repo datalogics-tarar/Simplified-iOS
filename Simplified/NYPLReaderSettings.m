@@ -24,11 +24,14 @@ BOOL NYPLReaderSettingsDecreasedFontSize(NYPLReaderSettingsFontSize const input,
     case NYPLReaderSettingsFontSizeLarge:
       *output = NYPLReaderSettingsFontSizeNormal;
       return YES;
-    case NYPLReaderSettingsFontSizeLarger:
+    case NYPLReaderSettingsFontSizeXLarge:
       *output = NYPLReaderSettingsFontSizeLarge;
       return YES;
-    case NYPLReaderSettingsFontSizeLargest:
-      *output = NYPLReaderSettingsFontSizeLarger;
+    case NYPLReaderSettingsFontSizeXXLarge:
+      *output = NYPLReaderSettingsFontSizeXLarge;
+      return YES;
+    case NYPLReaderSettingsFontSizeXXXLarge:
+      *output = NYPLReaderSettingsFontSizeXXLarge;
       return YES;
   }
 }
@@ -50,12 +53,15 @@ BOOL NYPLReaderSettingsIncreasedFontSize(NYPLReaderSettingsFontSize const input,
       *output = NYPLReaderSettingsFontSizeLarge;
       return YES;
     case NYPLReaderSettingsFontSizeLarge:
-      *output = NYPLReaderSettingsFontSizeLarger;
+      *output = NYPLReaderSettingsFontSizeXLarge;
       return YES;
-    case NYPLReaderSettingsFontSizeLarger:
-      *output = NYPLReaderSettingsFontSizeLargest;
+    case NYPLReaderSettingsFontSizeXLarge:
+      *output = NYPLReaderSettingsFontSizeXXLarge;
       return YES;
-    case NYPLReaderSettingsFontSizeLargest:
+    case NYPLReaderSettingsFontSizeXXLarge:
+      *output = NYPLReaderSettingsFontSizeXXXLarge;
+      return YES;
+    case NYPLReaderSettingsFontSizeXXXLarge:
       return NO;
   }
 }
@@ -125,10 +131,12 @@ NSString *fontSizeToString(NYPLReaderSettingsFontSize const fontSize)
       return @"normal";
     case NYPLReaderSettingsFontSizeLarge:
       return @"large";
-    case NYPLReaderSettingsFontSizeLarger:
-      return @"larger";
-    case NYPLReaderSettingsFontSizeLargest:
-      return @"largest";
+    case NYPLReaderSettingsFontSizeXLarge:
+      return @"xlarge";
+    case NYPLReaderSettingsFontSizeXXLarge:
+      return @"xxlarge";
+    case NYPLReaderSettingsFontSizeXXXLarge:
+      return @"xxxlarge";
   }
 }
 
@@ -154,13 +162,18 @@ NSString * mediaOverlaysEnableClickToString(BOOL mediaClickOverlayAlwaysEnable)
 
 NYPLReaderSettingsFontSize fontSizeFromString(NSString *const string)
 {
+  // Had to re-add older keys 'larger' and 'largest' to save from a
+  // crash for versions before 2.0.0 (1087)
   NSNumber *const fontSizeNumber = @{@"smallest": @(NYPLReaderSettingsFontSizeSmallest),
                                      @"smaller": @(NYPLReaderSettingsFontSizeSmaller),
                                      @"small": @(NYPLReaderSettingsFontSizeSmall),
                                      @"normal": @(NYPLReaderSettingsFontSizeNormal),
                                      @"large": @(NYPLReaderSettingsFontSizeLarge),
-                                     @"larger": @(NYPLReaderSettingsFontSizeLarger),
-                                     @"largest": @(NYPLReaderSettingsFontSizeLargest)}[string];
+                                     @"larger": @(NYPLReaderSettingsFontSizeXLarge),
+                                     @"largest": @(NYPLReaderSettingsFontSizeXXLarge),
+                                     @"xlarge": @(NYPLReaderSettingsFontSizeXLarge),
+                                     @"xxlarge": @(NYPLReaderSettingsFontSizeXXLarge),
+                                     @"xxxlarge": @(NYPLReaderSettingsFontSizeXXXLarge)}[string];
   
   if(!fontSizeNumber) {
     @throw NSInternalInconsistencyException;
@@ -425,11 +438,14 @@ static NSString *const MediaOverlaysEnableClick = @"mediaOverlaysEnableClick";
     case NYPLReaderSettingsFontSizeLarge:
       baseSize = 120;
       break;
-    case NYPLReaderSettingsFontSizeLarger:
+    case NYPLReaderSettingsFontSizeXLarge:
       baseSize = 150;
       break;
-    case NYPLReaderSettingsFontSizeLargest:
+    case NYPLReaderSettingsFontSizeXXLarge:
       baseSize = 200;
+      break;
+    case NYPLReaderSettingsFontSizeXXXLarge:
+      baseSize = 250;
       break;
   }
 

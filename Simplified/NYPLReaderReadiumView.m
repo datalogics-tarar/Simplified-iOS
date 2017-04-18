@@ -152,7 +152,7 @@ static void removeCalloutBarFromSuperviewStartingFromView(UIView *const view)
                  specialPayloadAnnotationsCSS:nil
                  specialPayloadMathJaxJS:nil];
   
-  self.webView = [[WKWebView alloc] initWithFrame:self.bounds];
+  self.webView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 60, self.bounds.size.width, self.bounds.size.height - 100)];
   self.webView.autoresizingMask = (UIViewAutoresizingFlexibleHeight |
                                    UIViewAutoresizingFlexibleWidth);
   self.webView.navigationDelegate = self;
@@ -557,12 +557,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 }
 - (void)syncLastReadingPosition:(NSMutableDictionary *const)dictionary andLocation:(NYPLBookLocation *const)location andBook:(NYPLBook *const)book
 {
-  [NYPLAnnotations sync:book completionHandler:^(NSDictionary * _Nullable responseObject, NSError * _Nullable error) {
-  
-    if (error)
-    {
-      return;
-    }
+  [NYPLAnnotations sync:book completionHandler:^(NSDictionary * _Nullable responseObject) {
     
     NSString* serverLocationString;
     NSString* currentLocationString;
@@ -623,26 +618,78 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
                               }]];
 
     }
+      if ((currentLocationString == nil && serverLocationString == nil) ||
+          (currentLocationString != nil && serverLocationString == nil) ||
+          (currentLocationString != nil && [deviceIDString isEqualToString:[NYPLAccount sharedAccount].deviceID]))
+      {
+        self.postLastRead = YES;
+      }
+      else if ((currentLocationString == nil && serverLocationString != nil) ||
+               (![currentLocationString isEqualToString:serverLocationString]) ||
+               (currentLocationString == nil && [deviceIDString isEqualToString:[NYPLAccount sharedAccount].deviceID]))
+      {
+        [[NYPLRootTabBarController sharedController] safelyPresentViewController:alertController animated:YES completion:nil];
+      }
+      else
+      {
+        self.postLastRead = YES;
+      }
     
-    if ((currentLocationString == nil && serverLocationString == nil) ||
-        (currentLocationString != nil && serverLocationString == nil) ||
-        (currentLocationString != nil && [deviceIDString isEqualToString:[NYPLAccount sharedAccount].deviceID]))
-    {
-        self.postLastRead = YES;
-    }
-    else if ((currentLocationString == nil && serverLocationString != nil) ||
-             (![currentLocationString isEqualToString:serverLocationString]) ||
-             (currentLocationString == nil && [deviceIDString isEqualToString:[NYPLAccount sharedAccount].deviceID]))
-    {
-      [[NYPLRootTabBarController sharedController] safelyPresentViewController:alertController animated:YES completion:nil];
-    }
-    else
-    {
-        self.postLastRead = YES;
-    }
-
   }];
 }
+
+- (void) hasBookmarkForSpineItem:(NSString*)idref
+{
+  
+  //  filter the bookmarks first by spine item (idref) and then run the result through a loop until there is a match
+  // break out the loop if a match was found 
+  
+  
+//  for (bookmark in filteredBookmarks) {
+  
+
+  // dummy cfi , replace by cfi from the bookmark in this loop 
+  NSString *contentCFI = @"/4/2/2";
+  
+  NSString *js = [NSString stringWithFormat:@"ReadiumSDK.reader.isVisibleSpineItemElementCfi('%@', '%@')",
+                  idref,
+                  contentCFI];
+  
+  NYPLLOG(js);
+  
+  [self
+   sequentiallyEvaluateJavaScript:js
+   withCompletionHandler:^(id  _Nullable result, NSError * _Nullable error) {
+     
+     if (!error)
+     {
+       NSNumber const *isBookmarked = result;
+       NYPLLOG(isBookmarked);
+       if (isBookmarked && ![isBookmarked  isEqual: @0])
+       {
+         // is not a bookmarked page
+         NYPLLOG(@"there is a bookmark for this page");
+       }
+       else
+       {
+         // is not a bookmarked page
+         
+         NYPLLOG(@"there is no bookmark for this page");
+       }
+       
+     }
+     else{
+       NYPLLOG(error);
+     }
+     
+   }];
+  
+  // end loop
+//  }
+  
+  
+}
+
 - (void)readiumPaginationChangedWithDictionary:(NSDictionary *const)dictionary
 {
   // Use left-to-right unless it explicitly asks for right-to-left.
@@ -683,6 +730,15 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
          completed = YES;
        }
        NYPLLOG(locationJSON);
+       
+//       NSError *jsonError;
+//       NSData *objectData = [locationJSON dataUsingEncoding:NSUTF8StringEncoding];
+//       NSDictionary *json = [NSJSONSerialization JSONObjectWithData:objectData
+//                                                            options:NSJSONReadingMutableContainers
+//                                                              error:&jsonError];
+
+//       [self hasBookmarkForSpineItem:json[@"idref"]];
+       
        NYPLBookLocation *const location = [[NYPLBookLocation alloc]
                                            initWithLocationString:locationJSON
                                            renderer:renderer];
