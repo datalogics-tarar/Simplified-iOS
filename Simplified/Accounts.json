@@ -49,5 +49,21 @@
  "supportsHelpCenter" : false,
  "catalogUrl" : "https://instantclassics.librarysimplified.org/index.xml",
  "mainColor" : "497049"
+ },
+ {
+ "id": 3,
+ "pathComponent" : "3",
+ "name" : "Library For All",
+ "subtitle" : "Making knowledge accessible to all, equally.",
+ "logo" : "LibraryForAll",
+ "needsAuth" : true,
+ "supportsSimplyESync" : false,
+ "supportsBarcodeScanner" : false,
+ "supportsBarcodeDisplay" : false,
+ "supportsCardCreator" : false,
+ "supportsReservations" : false,
+ "supportsHelpCenter" : false,
+ "catalogUrl" : "https://books.l4a.io/rw",
+ "mainColor": "2da5a5"
  }
 ]
