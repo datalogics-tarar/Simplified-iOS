@@ -53,7 +53,7 @@ typedef NS_ENUM(NSInteger, Section) {
   SectionLicenses = 2,
 };
 
-@interface NYPLSettingsAccountDetailViewController () <NSURLSessionDelegate, UITextFieldDelegate, UIAlertViewDelegate>
+@interface NYPLSettingsAccountDetailViewController () <NSURLSessionDelegate, UITextFieldDelegate>
 
 @property (nonatomic) BOOL isLoggingInAfterSignUp;
 @property (nonatomic) UITextField *barcodeTextField;

@@ -74,7 +74,7 @@ static CellKind CellKindFromIndexPath(NSIndexPath *const indexPath)
   }
 }
 
-@interface NYPLAccountSignInViewController () <NSURLSessionDelegate, UITextFieldDelegate, UIAlertViewDelegate>
+@interface NYPLAccountSignInViewController () <NSURLSessionDelegate, UITextFieldDelegate>
 
 @property (nonatomic) BOOL isLoggingInAfterSignUp;
 @property (nonatomic) BOOL isCurrentlySigningIn;

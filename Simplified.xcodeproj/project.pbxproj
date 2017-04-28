@@ -14,6 +14,8 @@
 		0320E8271E8BFD5700806EF0 /* ReportIssue.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0320E8261E8BFD5700806EF0 /* ReportIssue.storyboard */; };
 		032A31051DC02E8E0001E4AF /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 032A31071DC02E8E0001E4AF /* Localizable.strings */; };
 		0345BFE81DBF027200398B6F /* APIKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0345BFD61DBF002E00398B6F /* APIKeys.swift */; };
+		03690E111EB26E1B00F75D5F /* ScanditBarcodeScanner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03690E101EB26E1B00F75D5F /* ScanditBarcodeScanner.framework */; };
+		03690E171EB26E3400F75D5F /* ScanditBarcodeScanner.bundle in Resources */ = {isa = PBXBuildFile; fileRef = 03690E161EB26E3400F75D5F /* ScanditBarcodeScanner.bundle */; };
 		03690E231EB2B35000F75D5F /* NYPLReaderBookmarkCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03690E221EB2B35000F75D5F /* NYPLReaderBookmarkCell.swift */; };
 		03690E291EB2B44300F75D5F /* NYPLReaderBookmarkElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03690E281EB2B44300F75D5F /* NYPLReaderBookmarkElement.swift */; };
 		036B02C11DCBF3360098784A /* HelpStackStoryboard.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 036B02C01DCBF3360098784A /* HelpStackStoryboard.storyboard */; };
@@ -27,6 +29,7 @@
 		03B0922C1E7886C900AD338D /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03B0922B1E7886C900AD338D /* AVFoundation.framework */; };
 		03B0922E1E7886ED00AD338D /* CoreVideo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03B0922D1E7886ED00AD338D /* CoreVideo.framework */; };
 		03B092301E78871A00AD338D /* MediaPlayer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 03B0922F1E78871A00AD338D /* MediaPlayer.framework */; };
+		03B80C3E1EB2E383007DCB5C /* NYPLScanTableViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 03B80C3D1EB2E383007DCB5C /* NYPLScanTableViewController.m */; };
 		03CE00EA1E0C436400C91489 /* libePub3-iOS.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 03CE00E91E0C436400C91489 /* libePub3-iOS.a */; };
 		03DE7BE91DBF0DE400E89064 /* UpdateCheckShim.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC8D9DD1D09F9B4007DD125 /* UpdateCheckShim.swift */; };
 		03E5F42D1EA5BCE400DFFC3A /* NYPLReaderTOC.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 03E5F42A1EA5BCE400DFFC3A /* NYPLReaderTOC.storyboard */; };
@@ -236,6 +239,8 @@
 		032A310D1DC02EB30001E4AF /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		032A310E1DC02EC00001E4AF /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
 		0345BFD61DBF002E00398B6F /* APIKeys.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = APIKeys.swift; sourceTree = "<group>"; };
+		03690E101EB26E1B00F75D5F /* ScanditBarcodeScanner.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = ScanditBarcodeScanner.framework; sourceTree = "<group>"; };
+		03690E161EB26E3400F75D5F /* ScanditBarcodeScanner.bundle */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.plug-in"; path = ScanditBarcodeScanner.bundle; sourceTree = "<group>"; };
 		03690E221EB2B35000F75D5F /* NYPLReaderBookmarkCell.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NYPLReaderBookmarkCell.swift; sourceTree = "<group>"; };
 		03690E281EB2B44300F75D5F /* NYPLReaderBookmarkElement.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = NYPLReaderBookmarkElement.swift; sourceTree = "<group>"; };
 		036B02C01DCBF3360098784A /* HelpStackStoryboard.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = HelpStackStoryboard.storyboard; path = Pods/HelpStack/Resources/HelpStackStoryboard.storyboard; sourceTree = "<group>"; };
@@ -249,6 +254,8 @@
 		03B0922B1E7886C900AD338D /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 		03B0922D1E7886ED00AD338D /* CoreVideo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreVideo.framework; path = System/Library/Frameworks/CoreVideo.framework; sourceTree = SDKROOT; };
 		03B0922F1E78871A00AD338D /* MediaPlayer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaPlayer.framework; path = System/Library/Frameworks/MediaPlayer.framework; sourceTree = SDKROOT; };
+		03B80C3C1EB2E383007DCB5C /* NYPLScanTableViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NYPLScanTableViewController.h; sourceTree = "<group>"; };
+		03B80C3D1EB2E383007DCB5C /* NYPLScanTableViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = NYPLScanTableViewController.m; sourceTree = "<group>"; };
 		03CE00E91E0C436400C91489 /* libePub3-iOS.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libePub3-iOS.a"; path = "readium-sdk/Platform/Apple/build/Release-iphoneos/libePub3-iOS.a"; sourceTree = "<group>"; };
 		03E5F42A1EA5BCE400DFFC3A /* NYPLReaderTOC.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; path = NYPLReaderTOC.storyboard; sourceTree = "<group>"; };
 		03F94CCE1DD627AA00CE8F4F /* Accounts.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = Accounts.json; sourceTree = "<group>"; };
@@ -573,6 +580,7 @@
 				03B0922C1E7886C900AD338D /* AVFoundation.framework in Frameworks */,
 				03B0922A1E7885A600AD338D /* AudioToolbox.framework in Frameworks */,
 				03B092261E7883C400AD338D /* libiconv.tbd in Frameworks */,
+				03690E111EB26E1B00F75D5F /* ScanditBarcodeScanner.framework in Frameworks */,
 				A823D813192BABA400B55DE2 /* CoreGraphics.framework in Frameworks */,
 				03B092241E78839D00AD338D /* QuartzCore.framework in Frameworks */,
 				03CE00EA1E0C436400C91489 /* libePub3-iOS.a in Frameworks */,
@@ -843,6 +851,8 @@
 				111E75791A80165C00718AD7 /* NYPLSettingsSplitViewController.m */,
 				0320E8221E8BFCC900806EF0 /* NYPLReportIssueViewController.swift */,
 				0320E8261E8BFD5700806EF0 /* ReportIssue.storyboard */,
+				03B80C3C1EB2E383007DCB5C /* NYPLScanTableViewController.h */,
+				03B80C3D1EB2E383007DCB5C /* NYPLScanTableViewController.m */,
 			);
 			name = Settings;
 			sourceTree = "<group>";
@@ -937,6 +947,8 @@
 		A823D80F192BABA400B55DE2 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				03690E161EB26E3400F75D5F /* ScanditBarcodeScanner.bundle */,
+				03690E101EB26E1B00F75D5F /* ScanditBarcodeScanner.framework */,
 				03B0922F1E78871A00AD338D /* MediaPlayer.framework */,
 				03B0922D1E7886ED00AD338D /* CoreVideo.framework */,
 				03B0922B1E7886C900AD338D /* AVFoundation.framework */,
@@ -1322,6 +1334,7 @@
 				03F94CCF1DD627AA00CE8F4F /* Accounts.json in Resources */,
 				A823D81B192BABA400B55DE2 /* InfoPlist.strings in Resources */,
 				11C113D019F842B9005B3F63 /* reader.html in Resources */,
+				03690E171EB26E3400F75D5F /* ScanditBarcodeScanner.bundle in Resources */,
 				110F853E19D5FA7300052DF7 /* DetailSummaryTemplate.html in Resources */,
 				B594C7561BB06F40000028F5 /* HelpStackTheme.plist in Resources */,
 				032A31051DC02E8E0001E4AF /* Localizable.strings in Resources */,
@@ -1572,6 +1585,7 @@
 				118A0B1B19915BDF00792DDE /* NYPLCatalogSearchViewController.m in Sources */,
 				A4E254FA1B0E610900193FE4 /* NYPLBasicAuth.m in Sources */,
 				1188F3E11A1ECC4B006B2F36 /* NYPLReaderSettings.m in Sources */,
+				03B80C3E1EB2E383007DCB5C /* NYPLScanTableViewController.m in Sources */,
 				11C5DD16197727A6005A9945 /* NYPLKeychain.m in Sources */,
 				AE77E9B832371587493FF281 /* NYPLOPDSEntry.m in Sources */,
 				11DC19281A12F92500721DBA /* NYPLReaderSettingsView.m in Sources */,
