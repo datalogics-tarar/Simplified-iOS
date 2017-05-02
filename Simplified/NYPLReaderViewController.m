@@ -631,7 +631,7 @@ spineItemTitle:(NSString *const)title
 
 #pragma mark NYPLReaderReadiumDelegate
 
--(void)renderer:(__unused id<NYPLReaderRenderer>)renderer bookmark:(NYPLReaderBookmarkElement*)bookmark icon:(bool)on
+-(void)renderer:(__unused id<NYPLReaderRenderer>)renderer icon:(bool)on
 {
   NYPLRoundedButton * bookmarkButton = self.bookmarkBarButtonItem.customView;
   if (on) {
@@ -642,6 +642,10 @@ spineItemTitle:(NSString *const)title
     [bookmarkButton setImage:[UIImage imageNamed:@"BookmarkOff"] forState:UIControlStateNormal];
     bookmarkButton.accessibilityLabel = [[NSString alloc] initWithFormat:NSLocalizedString(@"Add Bookmark", nil)];
   }
+}
+
+-(void)renderer:(__unused id<NYPLReaderRenderer>)renderer bookmark:(NYPLReaderBookmarkElement*)bookmark
+{
   self.currentBookmark = bookmark;
 }
 

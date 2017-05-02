@@ -710,23 +710,54 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 	  
   NSString *contentCFI = locationDictionary[@"contentCFI"];
   NSString *idref = locationDictionary[@"idref"];
-  NSDictionary *spineItemDetails = self.bookMapDictionary[idref];
-  NSString *chapter = spineItemDetails[@"tocElementTitle"];
+  NSString *chapter = self.bookMapDictionary[idref][@"tocElementTitle"];
+
+  Account *currentAccount = [[AccountsManager sharedInstance] currentAccount];
   
-  // annotation id and page need to be implemented
-  // annotation id only when SimplyE sync is enabled
-  // page needs to be determined where that info comes from.
-  NYPLReaderBookmarkElement *bookmark = [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:@""];
-  
-  // add the bookmark to the local registry
-  [registry addBookmark:bookmark forIdentifier:self.book.identifier];
-  
-  // set the new bookmarks in this class
-  self.bookmarkElements = [registry bookmarksForIdentifier:self.book.identifier];
-  
-  // change bookmark icon to ON
   __weak NYPLReaderReadiumView *const weakSelf = self;
-  [weakSelf.delegate renderer:weakSelf bookmark:bookmark icon:YES];
+  [weakSelf.delegate renderer:weakSelf icon:YES];
+
+  
+  if (currentAccount.syncIsEnabled) {
+  
+    [NYPLAnnotations postBookmark:self.book cfi:location.locationString chapter:chapter completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
+      
+      
+      // add the bookmark to the local registry
+      [registry addBookmark:bookmark forIdentifier:self.book.identifier];
+      
+      // set the new bookmarks in this class
+      self.bookmarkElements = [registry bookmarksForIdentifier:self.book.identifier];
+      
+      [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+
+        // set current bookmark
+        [weakSelf.delegate renderer:weakSelf bookmark:bookmark];
+
+      }];
+    }];
+
+  }
+  else {
+  
+    // annotation id and page need to be implemented
+    // annotation id only when SimplyE sync is enabled
+    // page needs to be determined where that info comes from.
+    NYPLReaderBookmarkElement *bookmark = [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:@""];
+
+    // add the bookmark to the local registry
+    [registry addBookmark:bookmark forIdentifier:self.book.identifier];
+  
+    // set the new bookmarks in this class
+    self.bookmarkElements = [registry bookmarksForIdentifier:self.book.identifier];
+  
+    // set current bookmark and change bookmark icon to ON
+    [weakSelf.delegate renderer:weakSelf bookmark:bookmark];
+    [weakSelf.delegate renderer:weakSelf icon:YES];
+  
+  }
+  
+  
 }
 
 - (void) deleteBookmark:(NYPLReaderBookmarkElement*)bookmark
@@ -740,7 +771,19 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
   
   // set the bookmark icon to no bookmark
   __weak NYPLReaderReadiumView *const weakSelf = self;
-  [weakSelf.delegate renderer:weakSelf bookmark:nil icon:NO];
+  [weakSelf.delegate renderer:weakSelf icon:NO];
+  [weakSelf.delegate renderer:weakSelf bookmark:nil];
+
+  
+  Account *currentAccount = [[AccountsManager sharedInstance] currentAccount];
+
+  if (currentAccount.syncIsEnabled && (bookmark.annotationId != nil && bookmark.annotationId.length > 0)) {
+  
+    [NYPLAnnotations deleteBookmarkWithAnnotationId:bookmark.annotationId];
+  
+  }
+  
+  
 }
 
 - (void)readiumPaginationChangedWithDictionary:(NSDictionary *const)dictionary
@@ -792,7 +835,8 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
                                                               error:&jsonError];
 
        [self hasBookmarkForSpineItem:json[@"idref"] completionHandler:^(bool success,NYPLReaderBookmarkElement *bookmark) {
-         [weakSelf.delegate renderer:weakSelf bookmark:bookmark icon:success];
+         [weakSelf.delegate renderer:weakSelf icon:success];
+         [weakSelf.delegate renderer:weakSelf bookmark:bookmark];
        }];
        
        NYPLBookLocation *const location = [[NYPLBookLocation alloc]
