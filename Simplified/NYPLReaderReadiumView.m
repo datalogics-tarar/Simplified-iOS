@@ -587,8 +587,94 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
                                         locationForIdentifier:self.book.identifier];
 
     [self syncLastReadingPosition:dictionary andLocation:location andBook:self.book];
+    
+    
+    
+    
+    // 1.
+    // post all local bookmarks if they have not been posted yet,
+    // this can happen if device was storing local bookmarks first and SImplyE Sync was enabled afterwards.
+    NSArray * localBookmarks = [[NYPLBookRegistry sharedRegistry] bookmarksForIdentifier:self.book.identifier];
+    for (NYPLReaderBookmarkElement *localBookmark in localBookmarks) {
+      
+      if (localBookmark.annotationId.length == 0 || localBookmark.annotationId == nil) {
+        
+        [NYPLAnnotations postBookmark:self.book cfi:localBookmark.location chapter:localBookmark.chapter completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
+                    
+          [[NYPLBookRegistry sharedRegistry] replaceBookmark:localBookmark with:bookmark forIdentifier:self.book.identifier];
+          
+        }];
+      }
+    }
+
+
+    [NYPLAnnotations getBookmarks:self.book completionHandler:^(NSArray *remoteBookmarks) {
+      
+      
+      // 2.
+      // delete local bookmarks if annotation id exists locally but not remote
+      NSMutableArray *keepLocalBookmarks = [[NSMutableArray alloc] init];
+      for (NYPLReaderBookmarkElement *bookmark in remoteBookmarks) {
+        
+        NSPredicate *predicate = [NSPredicate predicateWithFormat:@"annotationId == %@", bookmark.annotationId];
+        [keepLocalBookmarks addObjectsFromArray:[localBookmarks filteredArrayUsingPredicate:predicate]];
+        
+      }
+      NYPLLOG(keepLocalBookmarks);
+      
+      NSMutableArray *deleteLocalBookmarks = [[NSMutableArray alloc] init];
+      for (NYPLReaderBookmarkElement *bookmark in localBookmarks) {
+        if (![keepLocalBookmarks containsObject:bookmark]) {
+          [deleteLocalBookmarks addObject:bookmark];
+        }
+      }
+      NYPLLOG(deleteLocalBookmarks);
+      
+      // check if SimplyE Sync is enabled before deleting any local bookmarks
+
+      for (NYPLReaderBookmarkElement *bookmark in deleteLocalBookmarks) {
+        [[NYPLBookRegistry sharedRegistry] deleteBookmark:bookmark forIdentifier:self.book.identifier];
+      }
+     
+      
+      
+      // 3.
+      // get remote bookmarks and store locally if not already stored
+      NSMutableArray *addLocalBookmarks = remoteBookmarks.mutableCopy;
+      NSMutableArray *ignoreBookmarks = [[NSMutableArray alloc] init];
+      
+      
+      for (NYPLReaderBookmarkElement *bookmark in remoteBookmarks) {
+        NSPredicate *predicate = [NSPredicate predicateWithFormat:@"annotationId == %@", bookmark.annotationId];
+        [ignoreBookmarks addObjectsFromArray:[localBookmarks filteredArrayUsingPredicate:predicate]];
+      }
+      
+      for (NYPLReaderBookmarkElement *el in addLocalBookmarks) {
+        
+        for (NYPLReaderBookmarkElement *el2 in ignoreBookmarks) {
+          
+          if ([el isEqual:el2]) {
+            [addLocalBookmarks removeObject:el];
+          }
+          
+        }
+        
+      }
+
+      for (NYPLReaderBookmarkElement *bookmark in addLocalBookmarks) {
+        
+        
+        [[NYPLBookRegistry sharedRegistry] addBookmark:bookmark forIdentifier:self.book.identifier];
+        
+      }
+
+      
+    }];
+    
+  
   }
 }
+
 - (void)syncLastReadingPosition:(NSMutableDictionary *const)dictionary andLocation:(NYPLBookLocation *const)location andBook:(NYPLBook *const)book
 {
   [NYPLAnnotations syncLastRead:book completionHandler:^(NSDictionary * _Nullable responseObject) {
@@ -731,18 +817,39 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
     [NYPLAnnotations postBookmark:self.book cfi:location.locationString chapter:chapter completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
       
       
-      // add the bookmark to the local registry
-      [registry addBookmark:bookmark forIdentifier:self.book.identifier];
-      
-      // set the new bookmarks in this class
-      self.bookmarkElements = [registry bookmarksForIdentifier:self.book.identifier];
-      
-      [[NSOperationQueue mainQueue] addOperationWithBlock:^{
+      if (bookmark) {
+        // add the bookmark to the local registry
+        [registry addBookmark:bookmark forIdentifier:self.book.identifier];
+        
+        // set the new bookmarks in this class
+        self.bookmarkElements = [registry bookmarksForIdentifier:self.book.identifier];
+        
+        [[NSOperationQueue mainQueue] addOperationWithBlock:^{
 
-        // set current bookmark
+          // set current bookmark
+          [weakSelf.delegate renderer:weakSelf bookmark:bookmark];
+
+        }];
+      }
+      else {
+        
+        // annotation id and page need to be implemented
+        // annotation id only when SimplyE sync is enabled
+        // page needs to be determined where that info comes from.
+        NYPLReaderBookmarkElement *bookmark = [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:@"" location:location.locationString];
+        
+        // add the bookmark to the local registry
+        [registry addBookmark:bookmark forIdentifier:self.book.identifier];
+        
+        // set the new bookmarks in this class
+        self.bookmarkElements = [registry bookmarksForIdentifier:self.book.identifier];
+        
+        // set current bookmark and change bookmark icon to ON
         [weakSelf.delegate renderer:weakSelf bookmark:bookmark];
+        [weakSelf.delegate renderer:weakSelf icon:YES];
 
-      }];
+      }
+      
     }];
 
   }
@@ -751,7 +858,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
     // annotation id and page need to be implemented
     // annotation id only when SimplyE sync is enabled
     // page needs to be determined where that info comes from.
-    NYPLReaderBookmarkElement *bookmark = [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:@""];
+    NYPLReaderBookmarkElement *bookmark = [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:@"" location:location.locationString];
 
     // add the bookmark to the local registry
     [registry addBookmark:bookmark forIdentifier:self.book.identifier];
