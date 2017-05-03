@@ -358,16 +358,20 @@ final class NYPLAnnotations: NSObject {
                   return
               }
               
-              var responseObject = ["serverCFI" : serverCFI]
+              var responseObject:[String:Any] = ["serverCFI" : serverCFI]
               
               if let body = item["body"] as? [String:AnyObject],
                 let device = body["http://librarysimplified.org/terms/device"] as? String,
                 let time = body["http://librarysimplified.org/terms/time"] as? String,
-                let chapter = body["http://librarysimplified.org/terms/chapter"] as? String
+                let chapter = body["http://librarysimplified.org/terms/chapter"] as? String,
+                let progressWithinChapter = body["http://librarysimplified.org/terms/progressWithinChapter"] as? Float,
+                let progressWithinBook = body["http://librarysimplified.org/terms/progressWithinBook"] as? Float
               {
                 responseObject["device"] = device
                 responseObject["time"] = time
                 responseObject["chapter"] = chapter
+                responseObject["progressWithinChapter"] = progressWithinChapter
+                responseObject["progressWithinBook"] = progressWithinBook
               }
               
               
@@ -375,7 +379,11 @@ final class NYPLAnnotations: NSObject {
               
               if (contentCFI == responseJSON["contentCFI"]! && idref == responseJSON["idref"]!) {
                 
-                let bookmark = NYPLReaderBookmarkElement(annotationId: id, contentCFI: responseJSON["contentCFI"]!, idref: responseJSON["idref"]!, chapter: responseObject["chapter"]!, page: nil, location:serverCFI)
+                let bookmark = NYPLReaderBookmarkElement(annotationId: id, contentCFI: responseJSON["contentCFI"]!, idref: responseJSON["idref"]!, chapter: responseObject["chapter"] as? String, page: nil, location: serverCFI, progressWithinChapter: responseObject["progressWithinChapter"] as! Float, progressWithinBook: responseObject["progressWithinBook"] as! Float)
+                bookmark.time = responseObject["time"] as? String
+                bookmark.device = responseObject["device"] as? String
+        
+
                 completionHandler(bookmark)
                 return
                 
@@ -458,23 +466,30 @@ final class NYPLAnnotations: NSObject {
                     return
                 }
                 
-                var responseObject = ["serverCFI" : serverCFI]
+                var responseObject:[String:Any] = ["serverCFI" : serverCFI]
                 
                 if let body = item["body"] as? [String:AnyObject],
                   let device = body["http://librarysimplified.org/terms/device"] as? String,
                   let time = body["http://librarysimplified.org/terms/time"] as? String,
-                  let chapter = body["http://librarysimplified.org/terms/chapter"] as? String
+                  let chapter = body["http://librarysimplified.org/terms/chapter"] as? String,
+                  let progressWithinChapter = body["http://librarysimplified.org/terms/progressWithinChapter"] as? Float,
+                  let progressWithinBook = body["http://librarysimplified.org/terms/progressWithinBook"] as? Float
                 {
                   responseObject["device"] = device
                   responseObject["time"] = time
                   responseObject["chapter"] = chapter
+                  responseObject["progressWithinChapter"] = progressWithinChapter
+                  responseObject["progressWithinBook"] = progressWithinBook
                 }
                 
                 
                 let responseJSON = try! JSONSerialization.jsonObject(with: serverCFI.data(using: String.Encoding.utf8)!, options: JSONSerialization.ReadingOptions.mutableContainers) as! [String:String]
                 
                 
-                let bookmark = NYPLReaderBookmarkElement(annotationId: id, contentCFI: responseJSON["contentCFI"]!, idref: responseJSON["idref"]!, chapter: responseObject["chapter"], page: nil, location:serverCFI)
+                let bookmark = NYPLReaderBookmarkElement(annotationId: id, contentCFI: responseJSON["contentCFI"]!, idref: responseJSON["idref"]!, chapter: responseObject["chapter"] as? String, page: nil, location: serverCFI, progressWithinChapter: responseObject["progressWithinChapter"] as! Float, progressWithinBook: responseObject["progressWithinBook"] as! Float)
+                bookmark.time = responseObject["time"] as? String
+                bookmark.device = responseObject["device"] as? String
+
                 bookmarks.append(bookmark)
                 
               }
@@ -500,7 +515,7 @@ final class NYPLAnnotations: NSObject {
     
   }
   
-  class func postBookmark(_ book:NYPLBook, cfi:NSString, chapter:NSString, completionHandler: @escaping (_ responseObject: NYPLReaderBookmarkElement?) -> ())
+  class func postBookmark(_ book:NYPLBook, cfi:NSString, bookmark:NYPLReaderBookmarkElement, completionHandler: @escaping (_ responseObject: NYPLReaderBookmarkElement?) -> ())
   {
     if (NYPLAccount.shared().hasBarcodeAndPIN() && AccountsManager.shared.currentAccount.supportsSimplyESync)
     {
@@ -518,7 +533,9 @@ final class NYPLAnnotations: NSObject {
         "body": [
           "http://librarysimplified.org/terms/time" : NSDate().rfc3339String(),
           "http://librarysimplified.org/terms/device" : NYPLAccount.shared().deviceID,
-          "http://librarysimplified.org/terms/chapter" : chapter
+          "http://librarysimplified.org/terms/chapter" : bookmark.chapter!,
+          "http://librarysimplified.org/terms/progressWithinChapter" : bookmark.progressWithinChapter,
+          "http://librarysimplified.org/terms/progressWithinBook" : bookmark.progressWithinBook,
         ]
         ] as [String : Any]
       

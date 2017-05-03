@@ -19,6 +19,8 @@
 #import "NYPLConfiguration.h"
 #import "NYPLAlertController.h"
 #import "NYPLRootTabBarController.h"
+#import "NSDate+NYPLDateAdditions.h"
+
 #import "SimplyE-Swift.h"
 
 @interface NYPLReaderReadiumView ()
@@ -591,9 +593,6 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 
     [self syncLastReadingPosition:dictionary andLocation:location andBook:self.book];
     
-    
-    
-    
     // 1.
     // post all local bookmarks if they have not been posted yet,
     // this can happen if device was storing local bookmarks first and SImplyE Sync was enabled afterwards.
@@ -602,7 +601,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
       
       if (localBookmark.annotationId.length == 0 || localBookmark.annotationId == nil) {
         
-        [NYPLAnnotations postBookmark:self.book cfi:localBookmark.location chapter:localBookmark.chapter completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
+        [NYPLAnnotations postBookmark:self.book cfi:localBookmark.location bookmark:localBookmark completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
                     
           [[NYPLBookRegistry sharedRegistry] replaceBookmark:localBookmark with:bookmark forIdentifier:self.book.identifier];
           
@@ -610,9 +609,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
       }
     }
 
-
     [NYPLAnnotations getBookmarks:self.book completionHandler:^(NSArray *remoteBookmarks) {
-      
       
       // 2.
       // delete local bookmarks if annotation id exists locally but not remote
@@ -648,28 +645,19 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
       }
       
       for (NYPLReaderBookmarkElement *el in remoteBookmarks) {
-        
         for (NYPLReaderBookmarkElement *el2 in ignoreBookmarks) {
-          
           if ([el isEqual:el2]) {
             [addLocalBookmarks removeObject:el];
           }
-          
         }
-        
       }
-      
       
       for (NYPLReaderBookmarkElement *bookmark in addLocalBookmarks) {
-        
         [[NYPLBookRegistry sharedRegistry] addBookmark:bookmark forIdentifier:self.book.identifier];
-        
       }
 
-      
     }];
     
-  
   }
 }
 
@@ -804,6 +792,17 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
   NSString *idref = locationDictionary[@"idref"];
   NSString *chapter = self.bookMapDictionary[idref][@"tocElementTitle"];
 
+  float progressWithinChapter = 0.0;
+  if (self.spineItemPageIndex > 0 && self.spineItemPageCount > 0)
+  {
+    progressWithinChapter = (float) self.spineItemPageIndex / (float) self.spineItemPageCount;
+  }
+  float progressWithinBook = self.progressWithinBook;
+  
+  
+  NYPLReaderBookmarkElement *bookmark =
+  [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:nil location:location.locationString progressWithinChapter:progressWithinChapter progressWithinBook:progressWithinBook];
+
   Account *currentAccount = [[AccountsManager sharedInstance] currentAccount];
   
   __weak NYPLReaderReadiumView *const weakSelf = self;
@@ -812,7 +811,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
   
   if (currentAccount.syncIsEnabledForThisDevice) {
   
-    [NYPLAnnotations postBookmark:self.book cfi:location.locationString chapter:chapter completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
+    [NYPLAnnotations postBookmark:self.book cfi:location.locationString bookmark:bookmark completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
       
       
       if (bookmark) {
@@ -831,11 +830,9 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
       }
       else {
         
-        // annotation id and page need to be implemented
-        // annotation id only when SimplyE sync is enabled
-        // page needs to be determined where that info comes from.
-        NYPLReaderBookmarkElement *bookmark = [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:@"" location:location.locationString];
-        
+        bookmark.time = [[[NSDate alloc] init ] RFC3339String];
+        bookmark.device = [[NYPLAccount sharedAccount] deviceID];
+
         // add the bookmark to the local registry
         [registry addBookmark:bookmark forIdentifier:self.book.identifier];
         
@@ -853,10 +850,13 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
   }
   else {
   
+    
+    bookmark.time = [[[NSDate alloc] init ] RFC3339String];
+    bookmark.device = [[NYPLAccount sharedAccount] deviceID];
+    
     // annotation id and page need to be implemented
     // annotation id only when SimplyE sync is enabled
     // page needs to be determined where that info comes from.
-    NYPLReaderBookmarkElement *bookmark = [[NYPLReaderBookmarkElement alloc] initWithAnnotationId:@"" contentCFI:contentCFI idref:idref chapter:chapter page:@"" location:location.locationString];
 
     // add the bookmark to the local registry
     [registry addBookmark:bookmark forIdentifier:self.book.identifier];
