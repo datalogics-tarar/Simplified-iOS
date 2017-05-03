@@ -571,6 +571,14 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 - (void)syncLastReadingPosition
 {
   Account *currentAccount = [[AccountsManager sharedInstance] currentAccount];
+  
+  // Sync SimplyE Settings, this needs to be done here, in case the remote setting has been changed from a differtn device
+  [NYPLAnnotations getSyncSettingsWithCompletionHandler:^(BOOL initialized, BOOL value) {
+    if (initialized && !value) {
+      currentAccount.syncIsEnabled = value;
+    }
+  }];
+  
   if (currentAccount.syncIsEnabled) {
     NSMutableDictionary *const dictionary = [NSMutableDictionary dictionary];
     dictionary[@"package"] = self.package.dictionary;

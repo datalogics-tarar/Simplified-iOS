@@ -240,9 +240,9 @@
 }
 - (void)checkSyncSetting
 {
-  [NYPLAnnotations syncSettingsWithCompletionHandler:^(BOOL exist) {
+  [NYPLAnnotations getSyncSettingsWithCompletionHandler:^(BOOL initialized, BOOL __unused value) {
     
-    if (!exist)
+    if (!initialized)
     {
       // alert
       
