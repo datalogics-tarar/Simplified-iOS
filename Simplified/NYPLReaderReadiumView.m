@@ -572,14 +572,17 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 {
   Account *currentAccount = [[AccountsManager sharedInstance] currentAccount];
   
-  // Sync SimplyE Settings, this needs to be done here, in case the remote setting has been changed from a differtn device
+  // Sync SimplyE Settings, this needs to be done here, in case the remote setting has been changed from a different device
   [NYPLAnnotations getSyncSettingsWithCompletionHandler:^(BOOL initialized, BOOL value) {
     if (initialized && !value) {
-      currentAccount.syncIsEnabled = value;
+      currentAccount.syncIsEnabledForAllDevices = value;
+      if (!value) {
+        currentAccount.syncIsEnabledForThisDevice = value;
+      }
     }
   }];
   
-  if (currentAccount.syncIsEnabled) {
+  if (currentAccount.syncIsEnabledForThisDevice) {
     NSMutableDictionary *const dictionary = [NSMutableDictionary dictionary];
     dictionary[@"package"] = self.package.dictionary;
     dictionary[@"settings"] = [[NYPLReaderSettings sharedSettings] readiumSettingsRepresentation];
@@ -630,26 +633,21 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
       }
       NYPLLOG(deleteLocalBookmarks);
       
-      // check if SimplyE Sync is enabled before deleting any local bookmarks
-
       for (NYPLReaderBookmarkElement *bookmark in deleteLocalBookmarks) {
         [[NYPLBookRegistry sharedRegistry] deleteBookmark:bookmark forIdentifier:self.book.identifier];
       }
-     
-      
       
       // 3.
       // get remote bookmarks and store locally if not already stored
       NSMutableArray *addLocalBookmarks = remoteBookmarks.mutableCopy;
       NSMutableArray *ignoreBookmarks = [[NSMutableArray alloc] init];
       
-      
       for (NYPLReaderBookmarkElement *bookmark in remoteBookmarks) {
         NSPredicate *predicate = [NSPredicate predicateWithFormat:@"annotationId == %@", bookmark.annotationId];
         [ignoreBookmarks addObjectsFromArray:[localBookmarks filteredArrayUsingPredicate:predicate]];
       }
       
-      for (NYPLReaderBookmarkElement *el in addLocalBookmarks) {
+      for (NYPLReaderBookmarkElement *el in remoteBookmarks) {
         
         for (NYPLReaderBookmarkElement *el2 in ignoreBookmarks) {
           
@@ -660,9 +658,9 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
         }
         
       }
-
+      
+      
       for (NYPLReaderBookmarkElement *bookmark in addLocalBookmarks) {
-        
         
         [[NYPLBookRegistry sharedRegistry] addBookmark:bookmark forIdentifier:self.book.identifier];
         
@@ -812,7 +810,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
   [weakSelf.delegate renderer:weakSelf icon:YES];
 
   
-  if (currentAccount.syncIsEnabled) {
+  if (currentAccount.syncIsEnabledForThisDevice) {
   
     [NYPLAnnotations postBookmark:self.book cfi:location.locationString chapter:chapter completionHandler:^(NYPLReaderBookmarkElement *bookmark) {
       
@@ -892,7 +890,7 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
   
   Account *currentAccount = [[AccountsManager sharedInstance] currentAccount];
 
-  if (currentAccount.syncIsEnabled && (bookmark.annotationId != nil && bookmark.annotationId.length > 0)) {
+  if (currentAccount.syncIsEnabledForThisDevice && (bookmark.annotationId != nil && bookmark.annotationId.length > 0)) {
   
     [NYPLAnnotations deleteBookmarkWithAnnotationId:bookmark.annotationId];
   
