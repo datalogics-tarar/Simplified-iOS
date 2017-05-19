@@ -274,7 +274,7 @@ static NSString *const RecordsKey = @"records";
            if(existingBook) {
              [self updateBook:book];
            } else {
-             [self addBook:book location:nil state:NYPLBookStateDownloadNeeded fulfillmentId:nil];
+             [self addBook:book location:nil state:NYPLBookStateDownloadNeeded fulfillmentId:nil bookmarks:nil];
            }
          }
          for (NSString *identifier in identifiersToRemove) {
@@ -322,6 +322,7 @@ static NSString *const RecordsKey = @"records";
        location:(NYPLBookLocation *const)location
           state:(NYPLBookState)state
   fulfillmentId:(NSString *)fulfillmentId
+      bookmarks:(NSArray *)bookmarks
 {
   if(!book) {
     @throw NSInvalidArgumentException;
@@ -337,7 +338,8 @@ static NSString *const RecordsKey = @"records";
                                                   initWithBook:book
                                                   location:location
                                                   state:state
-                                                  fulfillmentId:fulfillmentId];
+                                                  fulfillmentId:fulfillmentId
+                                                  bookmarks:bookmarks];
     [self broadcastChange];
   }
 }
@@ -471,6 +473,60 @@ static NSString *const RecordsKey = @"records";
     return record.fulfillmentId;
   }
 }
+
+- (NSArray *)bookmarksForIdentifier:(NSString *)identifier
+{
+  @synchronized(self) {
+    NYPLBookRegistryRecord *const record = self.identifiersToRecords[identifier];
+    return record.bookmarks;
+  }
+}
+  
+-(void)addBookmark:(NYPLReaderBookmarkElement *)bookmark forIdentifier:(NSString *)identifier
+{
+  @synchronized(self) {
+    NYPLBookRegistryRecord *const record = self.identifiersToRecords[identifier];
+      
+    NSMutableArray *bookmarks = record.bookmarks.mutableCopy;
+    [bookmarks addObject:bookmark];
+    
+    self.identifiersToRecords[identifier] = [record recordWithBookmarks:bookmarks];
+    
+    [[NYPLBookRegistry sharedRegistry] save];
+  }
+}
+  
+- (void)deleteBookmark:(NYPLReaderBookmarkElement *)bookmark forIdentifier:(NSString *)identifier
+{
+  @synchronized(self) {
+      
+    NYPLBookRegistryRecord *const record = self.identifiersToRecords[identifier];
+      
+    NSMutableArray *bookmarks = record.bookmarks.mutableCopy;
+    [bookmarks removeObject:bookmark];
+    
+    self.identifiersToRecords[identifier] = [record recordWithBookmarks:bookmarks];
+    
+    [[NYPLBookRegistry sharedRegistry] save];
+  }
+}
+
+- (void)replaceBookmark:(NYPLReaderBookmarkElement *)old with:(NYPLReaderBookmarkElement *)new forIdentifier:(NSString *)identifier
+{
+  @synchronized(self) {
+    
+    NYPLBookRegistryRecord *const record = self.identifiersToRecords[identifier];
+    
+    NSMutableArray *bookmarks = record.bookmarks.mutableCopy;
+    [bookmarks removeObject:old];
+    [bookmarks addObject:new];
+
+    self.identifiersToRecords[identifier] = [record recordWithBookmarks:bookmarks];
+    
+    [[NYPLBookRegistry sharedRegistry] save];
+  }
+}
+
 
 - (void)setProcessing:(BOOL)processing forIdentifier:(NSString *)identifier
 {
