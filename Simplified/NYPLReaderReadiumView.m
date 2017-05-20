@@ -782,6 +782,19 @@ decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler
 }
 
 - (void)addBookmark
+- (NSString*) currentChapter {
+  
+  NYPLBookRegistry *registry = [NYPLBookRegistry sharedRegistry];
+
+  NYPLBookLocation *location = [registry locationForIdentifier:self.book.identifier];
+
+  NSDictionary *const locationDictionary = NYPLJSONObjectFromData([location.locationString dataUsingEncoding:NSUTF8StringEncoding]);
+
+  NSString *idref = locationDictionary[@"idref"];
+
+  return self.bookMapDictionary[idref][@"tocElementTitle"];
+
+}
 {
   NYPLBookRegistry *registry = [NYPLBookRegistry sharedRegistry];
     
