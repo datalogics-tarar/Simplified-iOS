@@ -110,35 +110,8 @@ static const CGFloat kActivityIndicatorPadding = 20.0;
   [self.activityIndicator startAnimating];
   [self.collectionView addSubview:self.activityIndicator];
   
-  //GODO Experimenting
-  if ([self.traitCollection respondsToSelector:@selector(forceTouchCapability)] &&
-      (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable)) {
-    [self registerForPreviewingWithDelegate:self sourceView:self.view];
-  }
+  [self enable3DTouch];
 }
-
-
-- (UIViewController *)previewingContext:(id<UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
-{
-  NSIndexPath *indexPath = [self.collectionView indexPathForItemAtPoint:location];
-  NYPLBookNormalCell *cell = (NYPLBookNormalCell *)[self.collectionView cellForItemAtIndexPath:indexPath];
-  
-  UIViewController *vc = [[UIViewController alloc] init];
-  UIImageView *imView = cell.cover;
-  imView.contentMode = UIViewContentModeScaleAspectFill;
-  [vc.view addSubview:imView];
-  [imView autoPinEdgesToSuperviewEdges];
-  
-  vc.preferredContentSize = CGSizeZero;
-  previewingContext.sourceRect = cell.frame;
-  
-  return vc;
-}
-
-//- (void)previewingContext:(id<UIViewControllerPreviewing>)previewingContext commitViewController:(UIViewController *)viewControllerToCommit
-//{
-//  
-//}
 
 - (void)didMoveToParentViewController:(UIViewController *)parent
 {
@@ -292,6 +265,42 @@ didSelectFacetAtIndexPath:(NSIndexPath *const)indexPath
   self.remoteViewController.URL = facet.href;
   
   [self.remoteViewController load];
+}
+
+#pragma mark - 3D Touch
+
+-(void)enable3DTouch
+{
+  if ([self.traitCollection respondsToSelector:@selector(forceTouchCapability)] &&
+      (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable)) {
+    [self registerForPreviewingWithDelegate:self sourceView:self.view];
+  }
+}
+
+- (UIViewController *)previewingContext:(id<UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
+{
+  CGPoint referencePoint = [self.collectionView convertPoint:location fromView:self.view];
+  NSIndexPath *indexPath = [self.collectionView indexPathForItemAtPoint:referencePoint];
+  NYPLBookNormalCell *cell = (NYPLBookNormalCell *)[self.collectionView cellForItemAtIndexPath:indexPath];
+  
+  UIViewController *vc = [[UIViewController alloc] init];
+  vc.view.tag = indexPath.row;
+  UIImageView *imView = [[UIImageView alloc] initWithImage:cell.cover.image];
+  imView.contentMode = UIViewContentModeScaleAspectFill;
+  [vc.view addSubview:imView];
+  [imView autoPinEdgesToSuperviewEdges];
+  
+  vc.preferredContentSize = CGSizeZero;
+  previewingContext.sourceRect = [self.view convertRect:cell.frame fromView:[cell superview]];
+  
+  return vc;
+}
+
+- (void)previewingContext:(__unused id<UIViewControllerPreviewing>)previewingContext commitViewController:(UIViewController *)viewControllerToCommit
+{
+  NYPLBook *const book = self.feed.books[viewControllerToCommit.view.tag];
+  
+  [[[NYPLBookDetailViewController alloc] initWithBook:book] presentFromViewController:self];
 }
 
 #pragma mark -

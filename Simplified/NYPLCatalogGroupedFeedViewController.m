@@ -88,52 +88,7 @@ static CGFloat const sectionHeaderHeight = 50.0;
   }
   
   [self downloadImages];
-  
-  //GODO Experimenting
-  if ([self.traitCollection respondsToSelector:@selector(forceTouchCapability)] &&
-      (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable)) {
-    [self registerForPreviewingWithDelegate:self sourceView:self.tableView];
-  }
-}
-
-- (UIViewController *)previewingContext:(id<UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
-{
-  NSIndexPath *indexPath = [self.tableView indexPathForRowAtPoint:location];
-  
-  NYPLCatalogLaneCell *cell = (NYPLCatalogLaneCell *)[self.tableView cellForRowAtIndexPath:indexPath];
-  
-  UIViewController *vc = [[UIViewController alloc] init];
-  vc.view.tag = cell.laneIndex;
-  
-  for (UIButton *button in cell.buttons) {
-    CGPoint referencePoint = [[button superview] convertPoint:location fromView:self.tableView];
-    if (CGRectContainsPoint(button.frame, referencePoint)) {
-      UIImageView *imgView = [[UIImageView alloc] initWithImage:button.imageView.image];
-      imgView.contentMode = UIViewContentModeScaleAspectFill;
-      [vc.view addSubview:imgView];
-      [imgView autoPinEdgesToSuperviewEdges];
-      vc.preferredContentSize = CGSizeZero;
-      previewingContext.sourceRect = [self.tableView convertRect:button.frame fromView:[button superview]];
-      
-      self.tempBookPos = (int)button.tag;
-      
-      return vc;
-    }
-  }
-  return nil;
-}
-
-- (void)previewingContext:(id<UIViewControllerPreviewing>)previewingContext commitViewController:(UIViewController *)viewControllerToCommit
-{
-  
-  
-  NYPLCatalogLane *const lane = self.feed.lanes[viewControllerToCommit.view.tag];
-  //godo temp
-  NYPLBook *const feedBook = lane.books[self.tempBookPos];
-  
-  NYPLBook *const localBook = [[NYPLBookRegistry sharedRegistry] bookForIdentifier:feedBook.identifier];
-  NYPLBook *const book = (localBook != nil) ? localBook : feedBook;
-  [[[NYPLBookDetailViewController alloc] initWithBook:book] presentFromViewController:self];
+  [self enable3DTouch];
 }
 
 - (void)didMoveToParentViewController:(UIViewController *)parent
@@ -289,6 +244,51 @@ viewForHeaderInSection:(NSInteger const)section
   NYPLCatalogLane *const lane = self.feed.lanes[cell.laneIndex];
   NYPLBook *const feedBook = lane.books[bookIndex];
   
+  NYPLBook *const localBook = [[NYPLBookRegistry sharedRegistry] bookForIdentifier:feedBook.identifier];
+  NYPLBook *const book = (localBook != nil) ? localBook : feedBook;
+  [[[NYPLBookDetailViewController alloc] initWithBook:book] presentFromViewController:self];
+}
+
+#pragma mark - 3D Touch
+
+- (void)enable3DTouch
+{
+  if ([self.traitCollection respondsToSelector:@selector(forceTouchCapability)] &&
+      (self.traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable)) {
+    [self registerForPreviewingWithDelegate:self sourceView:self.tableView];
+  }
+}
+
+- (UIViewController *)previewingContext:(id<UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
+{
+  NSIndexPath *indexPath = [self.tableView indexPathForRowAtPoint:location];
+  NYPLCatalogLaneCell *cell = (NYPLCatalogLaneCell *)[self.tableView cellForRowAtIndexPath:indexPath];
+  
+  UIViewController *vc = [[UIViewController alloc] init];
+  vc.view.tag = cell.laneIndex;
+  
+  for (UIButton *button in cell.buttons) {
+    CGPoint referencePoint = [[button superview] convertPoint:location fromView:self.tableView];
+    if (CGRectContainsPoint(button.frame, referencePoint)) {
+      UIImageView *imgView = [[UIImageView alloc] initWithImage:button.imageView.image];
+      imgView.contentMode = UIViewContentModeScaleAspectFill;
+      [vc.view addSubview:imgView];
+      [imgView autoPinEdgesToSuperviewEdges];
+      vc.preferredContentSize = CGSizeZero;
+      previewingContext.sourceRect = [self.tableView convertRect:button.frame fromView:[button superview]];
+      
+      self.tempBookPos = (int)button.tag;
+      
+      return vc;
+    }
+  }
+  return nil;
+}
+
+- (void)previewingContext:(__unused id<UIViewControllerPreviewing>)previewingContext commitViewController:(UIViewController *)viewControllerToCommit
+{
+  NYPLCatalogLane *const lane = self.feed.lanes[viewControllerToCommit.view.tag];
+  NYPLBook *const feedBook = lane.books[self.tempBookPos];
   NYPLBook *const localBook = [[NYPLBookRegistry sharedRegistry] bookForIdentifier:feedBook.identifier];
   NYPLBook *const book = (localBook != nil) ? localBook : feedBook;
   [[[NYPLBookDetailViewController alloc] initWithBook:book] presentFromViewController:self];
