@@ -1,22 +1,25 @@
 #import "NYPLBook.h"
 #import "NYPLBookAcquisition.h"
 #import "NYPLBookDetailView.h"
-#import "NYPLMyBooksDownloadInfo.h"
 #import "NYPLBookRegistry.h"
+#import "NYPLCatalogLane.h"
+#import "NYPLCatalogLaneCell.h"
 #import "NYPLCatalogSearchViewController.h"
 #import "NYPLMyBooksDownloadCenter.h"
+#import "NYPLMyBooksDownloadInfo.h"
 #import "NYPLReaderViewController.h"
 #import "NYPLRootTabBarController.h"
 #import "NYPLSession.h"
 #import "NYPLProblemReportViewController.h"
 #import "NSURLRequest+NYPLURLRequestAdditions.h"
+#import "SimplyE-Swift.h"
 #import <PureLayout/PureLayout.h>
 
 #import "NYPLCatalogFeedViewController.h"
 
 #import "NYPLBookDetailViewController.h"
 
-@interface NYPLBookDetailViewController () <NYPLBookDetailViewDelegate, NYPLProblemReportViewControllerDelegate>
+@interface NYPLBookDetailViewController () <NYPLBookDetailViewDelegate, NYPLProblemReportViewControllerDelegate, NYPLCatalogLaneCellDelegate>
 
 @property (nonatomic) NYPLBook *book;
 @property (nonatomic) NYPLBookDetailView *bookDetailView;
@@ -36,9 +39,12 @@
   
   self.book = book;
   
-  self.bookDetailView = [[NYPLBookDetailView alloc] initWithBook:book];
+  self.title = book.title;
+  UILabel *label = [[UILabel alloc] init];
+  self.navigationItem.titleView = label;
+  
+  self.bookDetailView = [[NYPLBookDetailView alloc] initWithBook:book delegate:self];
   self.bookDetailView.state = [[NYPLBookRegistry sharedRegistry] stateForIdentifier:book.identifier];
-  self.bookDetailView.detailViewDelegate = self;
   
   [self.view addSubview:self.bookDetailView];
   [self.bookDetailView autoPinEdgesToSuperviewEdges];
@@ -82,8 +88,10 @@
 - (void)viewWillAppear:(BOOL)animated
 {
   [super viewWillAppear:animated];
-  if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+  if(UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && self.navigationController.viewControllers.count <= 1) {
     self.navigationController.navigationBarHidden = YES;
+  } else {
+    self.navigationController.navigationBarHidden = NO;
   }
 }
 
@@ -131,6 +139,23 @@
    animated:YES];
 }
 
+- (void)didSelectCitationsForBook:(NYPLBook *)book sender:(id)sender
+{
+  //FIXME: add logic for launching citations here
+}
+
+#pragma mark - NYPLCatalogLaneCellDelegate
+
+- (void)catalogLaneCell:(NYPLCatalogLaneCell *)cell
+     didSelectBookIndex:(NSUInteger)bookIndex
+{
+  NYPLCatalogLane *const lane = self.bookDetailView.tableViewDelegate.catalogLanes[cell.laneIndex];
+  NYPLBook *const feedBook = lane.books[bookIndex];
+  NYPLBook *const localBook = [[NYPLBookRegistry sharedRegistry] bookForIdentifier:feedBook.identifier];
+  NYPLBook *const book = (localBook != nil) ? localBook : feedBook;
+  [[[NYPLBookDetailViewController alloc] initWithBook:book] presentFromViewController:self];
+}
+
 #pragma mark - ProblemReportViewControllerDelegate
 
 -(void)didSelectReportProblemForBook:(NYPLBook *)book sender:(id)sender
@@ -149,10 +174,12 @@
   [self.navigationController pushViewController:problemVC animated:YES];
 }
 
-- (void)didSelectRelatedWorksForBook:(NYPLBook *)book sender:(__unused id)sender
+- (void)didSelectMoreBooksForLane:(NYPLCatalogLane *)lane
 {
-  NYPLCatalogFeedViewController *vc = [[NYPLCatalogFeedViewController alloc] initWithURL:book.relatedWorksURL];
-  [self.navigationController pushViewController:vc animated:YES];
+  UIViewController *const viewController = [[NYPLCatalogFeedViewController alloc]
+                                            initWithURL:lane.subsectionURL];
+  viewController.title = lane.title;
+  [self.navigationController pushViewController:viewController animated:YES];
 }
 
 - (void)problemReportViewController:(NYPLProblemReportViewController *)problemReportViewController didSelectProblemWithType:(NSString *)type
@@ -163,9 +190,6 @@
     [[NYPLSession sharedSession] uploadWithRequest:r completionHandler:nil];
   }
   [problemReportViewController dismissViewControllerAnimated:YES completion:nil];
-  [UIView transitionWithView:self.bookDetailView.reportProblemLabel duration:1 options:UIViewAnimationOptionTransitionCrossDissolve animations:^{
-    [self.bookDetailView.reportProblemLabel setTitle:NSLocalizedString(@"ReportProblemSent", nil) forState:UIControlStateNormal];
-  } completion:nil];
 }
 
 #pragma mark -
@@ -182,10 +206,15 @@
     [navItem setBackBarButtonItem:[[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"Search", nil) style:UIBarButtonItemStylePlain target:nil action:nil]];
   }
   else if (index == 0) {
-    [navItem setBackBarButtonItem:[[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"Catalog", nil) style:UIBarButtonItemStylePlain target:nil action:nil]];
-  } else if (index == 1) {
+    if (viewController.navigationController.viewControllers.count <= 1 &&
+        UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
+      [navItem setBackBarButtonItem:[[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"Catalog", nil) style:UIBarButtonItemStylePlain target:nil action:nil]];
+    }
+  }
+  else if (index == 1) {
     [navItem setBackBarButtonItem:[[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"MyBooksViewControllerTitle", nil) style:UIBarButtonItemStylePlain target:nil action:nil]];
-  } else if (index == 2) {
+  }
+  else if (index == 2) {
     [navItem setBackBarButtonItem:[[UIBarButtonItem alloc] initWithTitle:NSLocalizedString(@"HoldsViewControllerTitle", nil) style:UIBarButtonItemStylePlain target:nil action:nil]];
   }
   
