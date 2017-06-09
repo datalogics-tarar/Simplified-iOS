@@ -38,7 +38,6 @@ typedef NS_ENUM(NSInteger, CellKind) {
   CellKindLogInSignOut,
   CellKindRegistration,
   CellKindEULA,
-  CellKindSetCurrentAccount,
   CellKindSyncButton,
   CellKindAbout,
   CellKindPrivacyPolicy,
@@ -77,7 +76,6 @@ typedef NS_ENUM(NSInteger, Section) {
 @property (nonatomic) NSMutableArray *tableData;
 @property (nonatomic) bool rotated;
 
-@property (nonatomic) UISwitch* switchView;
 
 @end
 
@@ -132,11 +130,6 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
    name:UIApplicationWillEnterForegroundNotification
    object:nil];
   
-  [[NSNotificationCenter defaultCenter]
-   addObserver:self
-   selector:@selector(changedCurrentAccount)
-   name:NYPLCurrentAccountDidChangeNotification
-   object:nil];
   
   NSURLSessionConfiguration *const configuration =
     [NSURLSessionConfiguration ephemeralSessionConfiguration];
@@ -213,7 +206,6 @@ NSString *const NYPLSettingsAccountsSignInFinishedNotification = @"NYPLSettingsA
   [self setupTableData];
   
   [self checkSyncSetting];
-  self.switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
 }
 
 - (void)barcodeZoom
@@ -709,10 +701,11 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
       
       break;
     }
-    case CellKindSetCurrentAccount: {
-      break;
-    }
     case CellKindSyncButton: {
+      NYPLSettingsSyncViewController *vc = [[NYPLSettingsSyncViewController alloc] initWithStyle:UITableViewStyleGrouped];
+      vc.accountType = self.accountType;
+      vc.title = @"Sync Settings";
+      [self.navigationController pushViewController:vc animated:true];
       break;
     }
     case CellKindBarcodeImage: {
@@ -933,43 +926,13 @@ didSelectRowAtIndexPath:(NSIndexPath *const)indexPath
       self.ageCheckCell.textLabel.numberOfLines = 2;
       return self.ageCheckCell;
     }
-    case CellKindSetCurrentAccount: {
-      UITableViewCell *const cell = [[UITableViewCell alloc]
-                                     initWithStyle:UITableViewCellStyleDefault
-                                     reuseIdentifier:nil];
-      UISwitch* switchView = [[UISwitch alloc] initWithFrame:CGRectZero];
-      Account *currentAccount = [[AccountsManager sharedInstance] currentAccount];
-      if (currentAccount.id == self.accountType) {
-        [switchView setOn:YES];
-        switchView.enabled = false;
-      } else {
-        [switchView setOn:NO];
-      }
-      cell.accessoryView = switchView;
-      [switchView addTarget:self action:@selector(setAccountSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-      [cell.contentView addSubview:switchView];
-      cell.selectionStyle = UITableViewCellSelectionStyleNone;
-      cell.textLabel.font = [UIFont systemFontOfSize:17];
-      cell.textLabel.text = NSLocalizedString(@"SettingsAccountSetAccountTitle",
-                                              @"Title for switch to make this account the current active library account for the app");
-      return cell;
-    }
     case CellKindSyncButton: {
-      UITableViewCell *const cell = [[UITableViewCell alloc]
-                                     initWithStyle:UITableViewCellStyleDefault
-                                     reuseIdentifier:nil];
-      if (self.account.syncIsEnabledForAllDevices) {
-        [self.switchView setOn:YES];
-      } else {
-        [self.switchView setOn:NO];
-      }
-      cell.accessoryView = self.switchView;
-      [self.switchView addTarget:self action:@selector(syncSwitchChanged:) forControlEvents:UIControlEventValueChanged];
-      [cell.contentView addSubview:self.switchView];
-      cell.selectionStyle = UITableViewCellSelectionStyleNone;
+      UITableViewCell *cell = [[UITableViewCell alloc]
+                               initWithStyle:UITableViewCellStyleDefault
+                               reuseIdentifier:nil];
+      cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
       cell.textLabel.font = [UIFont systemFontOfSize:17];
-      cell.textLabel.text = NSLocalizedString(@"SettingsAccountSyncTitle",
-                                              @"Title for switch to turn on or off syncing.");
+      cell.textLabel.text = NSLocalizedString(@"SettingsAccountSyncTitle", nil);
       return cell;
     }
     case CellReportIssue: {
@@ -1339,7 +1302,6 @@ replacementString:(NSString *)string
         [NYPLAnnotations updateSyncSettings:false];
         account.syncIsEnabledForAllDevices = NO;
         account.syncIsEnabledForThisDevice = NO;
-        self.switchView.on = account.syncIsEnabledForThisDevice;
       }]];
       
       
@@ -1349,7 +1311,6 @@ replacementString:(NSString *)string
         [NYPLAnnotations updateSyncSettings:true];
         account.syncIsEnabledForAllDevices = YES;
         account.syncIsEnabledForThisDevice = YES;
-        self.switchView.on = account.syncIsEnabledForThisDevice;
         
       }]];
       [[NYPLRootTabBarController sharedController] safelyPresentViewController:alertController
@@ -1402,87 +1363,6 @@ replacementString:(NSString *)string
   [self.navigationController presentViewController:navVC animated:YES completion:nil];
 }
 
-- (void)syncSwitchChanged:(UISwitch*)sender
-{
-  
-  Account *account = [[AccountsManager sharedInstance] account:self.accountType];
-  NSString *title, *message;
-  
-  if (account.syncIsEnabledForAllDevices)
-  {
-    title = @"Disable Sync?";
-    message = @"Do not synchronize your bookmarks and last reading position across all of your devices.";
-  }
-  else
-  {
-    title = @"Enable Sync?";
-    message = @"Synchronize your bookmarks and last reading position across all of your devices.";
-  }
-  
-  NYPLAlertController *alertController = [NYPLAlertController alertControllerWithTitle:title message:message preferredStyle:UIAlertControllerStyleAlert];
-  if (account.syncIsEnabledForAllDevices)
-  {
-    [alertController addAction:[UIAlertAction actionWithTitle:@"Disable This Device" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
-    
-      // add server update here as well
-      
-      if (sender.on) {
-        account.syncIsEnabledForThisDevice = YES;
-      } else {
-        account.syncIsEnabledForThisDevice = NO;
-      }
-      self.switchView.on = account.syncIsEnabledForThisDevice;
-
-    }]];
-    [alertController addAction:[UIAlertAction actionWithTitle:@"Disable All Devices" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
-      
-      // add server update here as well
-      
-      [NYPLAnnotations updateSyncSettings:false];
-      if (sender.on) {
-        account.syncIsEnabledForAllDevices = YES;
-        account.syncIsEnabledForThisDevice = YES;
-      } else {
-        account.syncIsEnabledForAllDevices = NO;
-        account.syncIsEnabledForThisDevice = NO;
-      }
-      self.switchView.on = account.syncIsEnabledForAllDevices;
-      
-    }]];
-  }
-  else
-  {
-    [alertController addAction:[UIAlertAction actionWithTitle:@"Enable Sync" style:UIAlertActionStyleDefault handler:^(__unused UIAlertAction * _Nonnull action) {
-      
-      // add server update here as well
-      
-      [NYPLAnnotations updateSyncSettings:true];
-      if (sender.on) {
-        account.syncIsEnabledForAllDevices = YES;
-        account.syncIsEnabledForThisDevice = YES;
-      } else {
-        account.syncIsEnabledForAllDevices = NO;
-        account.syncIsEnabledForThisDevice = NO;
-      }
-      self.switchView.on = account.syncIsEnabledForAllDevices;
-      
-    }]];
-  }
-  
-  [alertController addAction:[UIAlertAction actionWithTitle:@"Not Now" style:UIAlertActionStyleCancel handler:^(__unused UIAlertAction * _Nonnull action) {
-
-    self.switchView.on = account.syncIsEnabledForThisDevice;
-    
-  }]];
-  
-  [[NYPLRootTabBarController sharedController] safelyPresentViewController:alertController
-                                                                  animated:YES completion:nil];
-}
-
-- (void)changedCurrentAccount
-{
-//  [self.navigationController popViewControllerAnimated:YES];
-}
 
 - (void)setAccountSwitchChanged:(id)sender
 {
