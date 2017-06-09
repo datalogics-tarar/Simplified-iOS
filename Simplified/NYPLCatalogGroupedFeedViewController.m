@@ -32,6 +32,8 @@ static CGFloat const sectionHeaderHeight = 50.0;
 @property (nonatomic) NYPLOpenSearchDescription *searchDescription;
 @property (nonatomic) UITableView *tableView;
 
+@property (nonatomic) int tempBookPos;
+
 @end
 
 @implementation NYPLCatalogGroupedFeedViewController
@@ -97,11 +99,11 @@ static CGFloat const sectionHeaderHeight = 50.0;
 - (UIViewController *)previewingContext:(id<UIViewControllerPreviewing>)previewingContext viewControllerForLocation:(CGPoint)location
 {
   NSIndexPath *indexPath = [self.tableView indexPathForRowAtPoint:location];
-  NSLog(@"%ld",(long)indexPath.row);
   
   NYPLCatalogLaneCell *cell = (NYPLCatalogLaneCell *)[self.tableView cellForRowAtIndexPath:indexPath];
   
   UIViewController *vc = [[UIViewController alloc] init];
+  vc.view.tag = cell.laneIndex;
   
   for (UIButton *button in cell.buttons) {
     CGPoint referencePoint = [[button superview] convertPoint:location fromView:self.tableView];
@@ -113,6 +115,8 @@ static CGFloat const sectionHeaderHeight = 50.0;
       vc.preferredContentSize = CGSizeZero;
       previewingContext.sourceRect = [self.tableView convertRect:button.frame fromView:[button superview]];
       
+      self.tempBookPos = (int)button.tag;
+      
       return vc;
     }
   }
@@ -121,7 +125,15 @@ static CGFloat const sectionHeaderHeight = 50.0;
 
 - (void)previewingContext:(id<UIViewControllerPreviewing>)previewingContext commitViewController:(UIViewController *)viewControllerToCommit
 {
-
+  
+  
+  NYPLCatalogLane *const lane = self.feed.lanes[viewControllerToCommit.view.tag];
+  //godo temp
+  NYPLBook *const feedBook = lane.books[self.tempBookPos];
+  
+  NYPLBook *const localBook = [[NYPLBookRegistry sharedRegistry] bookForIdentifier:feedBook.identifier];
+  NYPLBook *const book = (localBook != nil) ? localBook : feedBook;
+  [[[NYPLBookDetailViewController alloc] initWithBook:book] presentFromViewController:self];
 }
 
 - (void)didMoveToParentViewController:(UIViewController *)parent
